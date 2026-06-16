@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS arquivo_importado;
+DROP TABLE IF EXISTS receita_doador_originario_orgao_partidario;
+DROP TABLE IF EXISTS receita_doador_originario_candidato;
+DROP TABLE IF EXISTS receita_orgao_partidario;
+DROP TABLE IF EXISTS receita_candidato;
+DROP TABLE IF EXISTS despesa_orgao_partidario;
+DROP TABLE IF EXISTS despesa_candidato;
+DROP TABLE IF EXISTS prestacao_contas;
+DROP TABLE IF EXISTS doador;
+DROP TABLE IF EXISTS fornecedor;
+DROP TABLE IF EXISTS bem_candidato;
+DROP TABLE IF EXISTS candidato;
+DROP TABLE IF EXISTS partido;
+DROP TABLE IF EXISTS unidade_eleitoral;
+DROP TABLE IF EXISTS eleicao;

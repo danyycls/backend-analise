@@ -1,0 +1,2263 @@
+openapi: "3.0.3"
+
+info:
+  title: "LICEU API"
+  description: >
+    API de analise e cruzamento de dados publicos brasileiros.
+    Integra dados de multiplas fontes governamentais: TSE, TCU,
+    Portal da Transparencia, PNCP, Congresso Nacional (Camara e Senado),
+    IBGE e SICONFI.
+  version: "0.1.0"
+  contact:
+    name: "LICEU"
+    url: "https://github.com/danyele/laceu"
+
+servers:
+  - url: "http://localhost:8080"
+    description: "Desenvolvimento local"
+
+tags:
+  - name: Importacao
+    description: "Importacao de dados CSV do TSE"
+
+  - name: PNCP
+    description: "Portal Nacional de Contratacoes Publicas"
+
+  - name: Busca
+    description: "Busca e relacionamentos (TSE, contexto politico)"
+
+  - name: TCU
+    description: "Tribunal de Contas da Uniao"
+
+  - name: Deputados
+    description: "Camara dos Deputados"
+
+  - name: Senado
+    description: "Senado Federal"
+
+  - name: IBGE
+    description: "Instituto Brasileiro de Geografia e Estatistica"
+
+  - name: Estado
+    description: "Dados da esfera estadual"
+
+  - name: Municipio
+    description: "Dados da esfera municipal"
+
+  - name: PortalTransparencia
+    description: "Portal da Transparencia do Governo Federal"
+
+  - name: Entidade
+    description: "Consulta de entidades (candidatos, fornecedores, doadores)"
+
+paths:
+  # ─── Importacao ──────────────────────────────────────────────
+  /import:
+    post:
+      tags: [Importacao]
+      summary: "Executa importacao de dados CSV do TSE"
+      operationId: executarImportacao
+      responses:
+        "200":
+          description: "Stream SSE com eventos de progresso. Content-Type: text/event-stream"
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: "Erro interno"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  # ─── PNCP ────────────────────────────────────────────────────
+  /orgao/analise:
+    post:
+      tags: [PNCP]
+      summary: "Inicia analise de orgaos PNCP"
+      operationId: analisarOrgaoPNCP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnaliseOrgaoPNCPRequest"
+      responses:
+        "202":
+          description: "Analise iniciada (processamento assincrono)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+        "400":
+          description: "Dados invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /orgao/analise/stream/{jobId}:
+    get:
+      tags: [PNCP]
+      summary: "WebSocket stream do progresso da analise"
+      operationId: streamAnaliseOrgao
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: "Upgrade para WebSocket"
+
+  /orgao/analise/batch/{jobId}:
+    get:
+      tags: [PNCP]
+      summary: "Resultados batch da analise de orgaos"
+      operationId: batchAnaliseOrgao
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Resultados ou status de processamento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchOrgaoResponse"
+
+  /publicacao/analise:
+    post:
+      tags: [PNCP]
+      summary: "Inicia analise de publicacoes PNCP"
+      operationId: analisarPublicacao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalisePublicacaoRequest"
+      responses:
+        "202":
+          description: "Analise iniciada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobResponse"
+
+  /publicacao/analise/stream/{jobId}:
+    get:
+      tags: [PNCP]
+      summary: "WebSocket stream do progresso da analise de publicacoes"
+      operationId: streamAnalisePublicacao
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: "Upgrade para WebSocket"
+
+  /publicacao/analise/batch/{jobId}:
+    get:
+      tags: [PNCP]
+      summary: "Resultados batch da analise de publicacoes"
+      operationId: batchAnalisePublicacao
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Resultados ou status"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /ibge/municipios/{uf}:
+    get:
+      tags: [IBGE]
+      summary: "Lista municipios por UF (via IBGE)"
+      operationId: listarMunicipiosIBGE
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+      responses:
+        "200":
+          description: "Lista de municipios"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "400":
+          description: "UF invalida"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  # ─── Busca / Contexto / Relacoes ─────────────────────────────
+  /busca/contexto:
+    post:
+      tags: [Busca]
+      summary: "Analisa ligacao politica a partir de licitacoes"
+      operationId: analisarContextoPolitico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LigacaoPoliticaRequest"
+      responses:
+        "200":
+          description: "Resultado da analise de ligacao politica"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LigacaoPoliticaResponse"
+        "400":
+          description: "Dados invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /busca/relacoes:
+    post:
+      tags: [Busca]
+      summary: "Busca relacoes de um CNPJ (fornecedores, doadores, despesas, receitas)"
+      operationId: buscarRelacoes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuscaRelacoesRequest"
+      responses:
+        "200":
+          description: "Relacoes encontradas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelacoesResponse"
+        "400":
+          description: "Dados invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /entidade:
+    post:
+      tags: [Entidade]
+      summary: "Consulta entidade por tipo e chave"
+      operationId: consultarEntidade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsultaEntidadeRequest"
+      responses:
+        "200":
+          description: "Entidade encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsultaEntidadeResponse"
+        "400":
+          description: "Dados invalidos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "404":
+          description: "Entidade nao encontrada"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  # ─── TCU ─────────────────────────────────────────────────────
+  /tcu/contas-irregulares:
+    post:
+      tags: [TCU]
+      summary: "Busca contas irregulares no TCU"
+      operationId: buscarContasIrregulares
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TCUFilterRequest"
+      responses:
+        "200":
+          description: "Lista de contas irregulares"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /tcu/fins-eleitorais:
+    post:
+      tags: [TCU]
+      summary: "Busca condenacoes para fins eleitorais no TCU"
+      operationId: buscarFinsEleitorais
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TCUFilterRequest"
+      responses:
+        "200":
+          description: "Lista de condenacoes"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /tcu/inabilitados:
+    post:
+      tags: [TCU]
+      summary: "Busca inabilitados no TCU"
+      operationId: buscarInabilitados
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TCUFilterRequest"
+      responses:
+        "200":
+          description: "Lista de inabilitados"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /tcu/inidoneos:
+    post:
+      tags: [TCU]
+      summary: "Busca inidoneos no TCU"
+      operationId: buscarInidoneos
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TCUFilterRequest"
+      responses:
+        "200":
+          description: "Lista de inidoneos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Busca TSE ───────────────────────────────────────────────
+  /busca/cargos:
+    get:
+      tags: [Busca]
+      summary: "Lista cargos disponiveis no TSE"
+      operationId: listarCargosTSE
+      responses:
+        "200":
+          description: "Lista de cargos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /busca/partidos:
+    get:
+      tags: [Busca]
+      summary: "Lista partidos politicos"
+      operationId: listarPartidos
+      responses:
+        "200":
+          description: "Lista de partidos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /busca/candidatos:
+    post:
+      tags: [Busca]
+      summary: "Busca candidatos no TSE"
+      operationId: buscarCandidatos
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuscaCandidatosRequest"
+      responses:
+        "200":
+          description: "Resultado da busca de candidatos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidatosResponse"
+
+  /busca/doadores:
+    post:
+      tags: [Busca]
+      summary: "Busca doadores por documento"
+      operationId: buscarDoadores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuscaDocumentoRequest"
+      responses:
+        "200":
+          description: "Doador encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /busca/fornecedores:
+    post:
+      tags: [Busca]
+      summary: "Busca fornecedores por documento"
+      operationId: buscarFornecedores
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuscaDocumentoRequest"
+      responses:
+        "200":
+          description: "Fornecedor encontrado"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Deputados ───────────────────────────────────────────────
+  /deputados:
+    get:
+      tags: [Deputados]
+      summary: "Lista deputados ativos"
+      operationId: listarDeputadosAtivos
+      parameters:
+        - name: siglaPartido
+          in: query
+          schema:
+            type: string
+        - name: siglaUf
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de deputados ativos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /deputados/{id}/completo:
+    get:
+      tags: [Deputados]
+      summary: "Busca detalhes completos de um deputado"
+      operationId: buscarDetalhesDeputado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Detalhes do deputado"
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: "ID invalido"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /deputados/{id}/despesas:
+    get:
+      tags: [Deputados]
+      summary: "Busca despesas de um deputado"
+      operationId: buscarDespesasDeputado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tipoDespesa
+          in: query
+          schema:
+            type: string
+        - name: cnpjCpfFornecedor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Despesas do deputado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /deputados/{id}/orgaos:
+    get:
+      tags: [Deputados]
+      summary: "Busca orgaos associados a um deputado"
+      operationId: buscarOrgaosDeputado
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Orgaos associados"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  # ─── Senado ──────────────────────────────────────────────────
+  /senado/senadores:
+    get:
+      tags: [Senado]
+      summary: "Lista senadores"
+      operationId: listarSenadores
+      responses:
+        "200":
+          description: "Lista de senadores"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/senadores/{codigo}/completo:
+    get:
+      tags: [Senado]
+      summary: "Busca dados completos de um senador"
+      operationId: buscarSenador
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Dados do senador"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /senado/senadores/{codigo}/cargos:
+    get:
+      tags: [Senado]
+      summary: "Lista cargos de um senador"
+      operationId: listarCargosSenador
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Cargos do senador"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/senadores/{codigo}/comissoes:
+    get:
+      tags: [Senado]
+      summary: "Lista comissoes de um senador"
+      operationId: listarComissoesSenador
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Comissoes do senador"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/senadores/{codigo}/mandatos:
+    get:
+      tags: [Senado]
+      summary: "Lista mandatos de um senador"
+      operationId: listarMandatosSenador
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Mandatos do senador"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/orcamento:
+    get:
+      tags: [Senado]
+      summary: "Lista itens de orcamento do Senado"
+      operationId: listarOrcamento
+      responses:
+        "200":
+          description: "Itens de orcamento"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/processos:
+    get:
+      tags: [Senado]
+      summary: "Lista processos do Senado"
+      operationId: listarProcessos
+      responses:
+        "200":
+          description: "Processos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/processo/assuntos:
+    get:
+      tags: [Senado]
+      summary: "Lista assuntos de processos"
+      operationId: listarProcessoAssuntos
+      responses:
+        "200":
+          description: "Assuntos"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/processo/emendas:
+    get:
+      tags: [Senado]
+      summary: "Lista emendas de processos"
+      operationId: listarProcessoEmendas
+      responses:
+        "200":
+          description: "Emendas"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/processo/{id}:
+    get:
+      tags: [Senado]
+      summary: "Busca processo por ID"
+      operationId: buscarProcesso
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Detalhes do processo"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /senado/votacoes:
+    get:
+      tags: [Senado]
+      summary: "Lista votacoes"
+      operationId: listarVotacoes
+      responses:
+        "200":
+          description: "Votacoes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/votacoes/comissao/{sigla}:
+    get:
+      tags: [Senado]
+      summary: "Votacoes por comissao"
+      operationId: listarVotacoesComissao
+      parameters:
+        - name: sigla
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Votacoes da comissao"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/votacoes/parlamentar/{codigo}:
+    get:
+      tags: [Senado]
+      summary: "Votacoes por parlamentar"
+      operationId: listarVotacoesParlamentar
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Votacoes do parlamentar"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/materia/tramitacao:
+    get:
+      tags: [Senado]
+      summary: "Tramitacao de materias"
+      operationId: listarMateriaTramitacao
+      responses:
+        "200":
+          description: "Tramitacoes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/agenda/dia/{data}:
+    get:
+      tags: [Senado]
+      summary: "Agenda diaria do Senado"
+      operationId: listarAgendaDia
+      parameters:
+        - name: data
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Agenda do dia"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/agenda/mes/{data}:
+    get:
+      tags: [Senado]
+      summary: "Agenda mensal do Senado"
+      operationId: listarAgendaMes
+      parameters:
+        - name: data
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Agenda do mes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/encontro/{codigo}:
+    get:
+      tags: [Senado]
+      summary: "Busca encontro (reuniao)"
+      operationId: buscarEncontro
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Detalhes do encontro"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /senado/comissoes:
+    get:
+      tags: [Senado]
+      summary: "Lista todas as comissoes"
+      operationId: listarComissoes
+      responses:
+        "200":
+          description: "Comissoes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /senado/comissoes/{codigo}:
+    get:
+      tags: [Senado]
+      summary: "Busca comissao por codigo"
+      operationId: buscarComissao
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Comissao"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  # ─── IBGE ────────────────────────────────────────────────────
+  /ibge/estados:
+    get:
+      tags: [IBGE]
+      summary: "Lista estados brasileiros"
+      operationId: listarEstados
+      responses:
+        "200":
+          description: "Lista de estados"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /ibge/municipios-populacao/{uf}:
+    get:
+      tags: [IBGE]
+      summary: "Lista municipios com dados populacionais"
+      operationId: listarMunicipiosPopulacao
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Municipios com populacao"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  # ─── Estado ──────────────────────────────────────────────────
+  /estado/{uf}/dados-completos:
+    get:
+      tags: [Estado]
+      summary: "Busca dados completos de um estado"
+      operationId: buscarDadosCompletosEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+      responses:
+        "200":
+          description: "Dados completos do estado"
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: "UF invalida"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /estado/{uf}/basico:
+    get:
+      tags: [Estado]
+      summary: "Busca dados basicos de um estado"
+      operationId: buscarBasicoEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Dados basicos do estado"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /estado/{uf}/candidatos:
+    get:
+      tags: [Estado]
+      summary: "Busca candidatos de um estado"
+      operationId: buscarCandidatosEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Candidatos do estado"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /estado/{uf}/deputados:
+    get:
+      tags: [Estado]
+      summary: "Busca deputados de um estado"
+      operationId: buscarDeputadosEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Deputados do estado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /estado/{uf}/senadores:
+    get:
+      tags: [Estado]
+      summary: "Busca senadores de um estado"
+      operationId: buscarSenadoresEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Senadores do estado"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DadosWrapper"
+
+  /estado/{uf}/financeiro/stream:
+    get:
+      tags: [Estado]
+      summary: "WebSocket stream de dados financeiros do estado"
+      operationId: streamFinanceiroEstado
+      parameters:
+        - name: uf
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: "Upgrade para WebSocket"
+
+  # ─── Municipio ───────────────────────────────────────────────
+  /municipio/{codigoIBGE}/detalhes/stream:
+    get:
+      tags: [Municipio]
+      summary: "WebSocket stream de detalhes do municipio"
+      operationId: streamDetalhesMunicipio
+      parameters:
+        - name: codigoIBGE
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: exercicio
+          in: query
+          schema:
+            type: integer
+        - name: nome
+          in: query
+          schema:
+            type: string
+        - name: uf
+          in: query
+          schema:
+            type: string
+      responses:
+        "101":
+          description: "Upgrade para WebSocket"
+
+  # ─── Portal Transparencia: Orgaos ────────────────────────────
+  /portal-transparencia/orgaos/siape:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca orgaos SIAPE"
+      operationId: buscarOrgaosSIAPE
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: codigoOrgao
+          in: query
+          schema:
+            type: string
+        - name: nomeOrgao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de orgaos SIAPE"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/orgaos/siafi:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca orgaos SIAFI"
+      operationId: buscarOrgaosSIAFI
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: codigoOrgao
+          in: query
+          schema:
+            type: string
+        - name: nomeOrgao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de orgaos SIAFI"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Portal Transparencia: Pessoas ───────────────────────────
+  /portal-transparencia/pessoas/fisica:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca pessoa fisica"
+      operationId: buscarPessoaFisica
+      parameters:
+        - name: cpf
+          in: query
+          schema:
+            type: string
+        - name: nome
+          in: query
+          schema:
+            type: string
+        - name: nis
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Pessoa fisica encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /portal-transparencia/pessoas/juridica:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca pessoa juridica"
+      operationId: buscarPessoaJuridica
+      parameters:
+        - name: cnpj
+          in: query
+          schema:
+            type: string
+        - name: razaoSocial
+          in: query
+          schema:
+            type: string
+        - name: nomeFantasia
+          in: query
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Pessoa juridica encontrada"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # ─── Portal Transparencia: Cartoes ───────────────────────────
+  /portal-transparencia/cartoes:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca gastos com cartao corporativo"
+      operationId: buscarCartoes
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: mesExtratoInicio
+          in: query
+          schema:
+            type: string
+        - name: mesExtratoFim
+          in: query
+          schema:
+            type: string
+        - name: cpfPortador
+          in: query
+          schema:
+            type: string
+        - name: cpfCnpjFavorecido
+          in: query
+          schema:
+            type: string
+        - name: codigoOrgao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de gastos com cartao"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Portal Transparencia: Servidores ────────────────────────
+  /portal-transparencia/servidores:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca servidores"
+      operationId: buscarServidores
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: cpf
+          in: query
+          schema:
+            type: string
+        - name: nome
+          in: query
+          schema:
+            type: string
+        - name: orgaoServidorLotacao
+          in: query
+          schema:
+            type: string
+        - name: orgaoServidorExercicio
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de servidores"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/servidores/{id}:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca servidor por ID"
+      operationId: buscarServidorPorID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Dados do servidor"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /portal-transparencia/servidores/remuneracao:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca remuneracao de servidores"
+      operationId: buscarRemuneracao
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: cpf
+          in: query
+          schema:
+            type: string
+        - name: mesAno
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Remuneracao"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/servidores/por-orgao:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca servidores por orgao"
+      operationId: buscarServidoresPorOrgao
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: orgaoLotacao
+          in: query
+          schema:
+            type: string
+        - name: orgaoExercicio
+          in: query
+          schema:
+            type: string
+        - name: tipoServidor
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Servidores por orgao"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/servidores/funcoes-e-cargos:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca funcoes e cargos"
+      operationId: buscarFuncoesECargos
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: codigoFuncaoCargo
+          in: query
+          schema:
+            type: string
+        - name: descricaoFuncaoCargo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Funcoes e cargos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/servidores/peps:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca Pessoas Expostas Politicamente (PEPs)"
+      operationId: buscarPEPs
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: cpf
+          in: query
+          schema:
+            type: string
+        - name: nome
+          in: query
+          schema:
+            type: string
+        - name: orgaoServidorLotacao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Lista de PEPs"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Portal Transparencia: Despesas ──────────────────────────
+  /portal-transparencia/despesas/tipo-transferencia:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista tipos de transferencia"
+      operationId: listarTiposTransferencia
+      responses:
+        "200":
+          description: "Tipos de transferencia"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/recursos-recebidos:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca recursos recebidos"
+      operationId: buscarRecursosRecebidos
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: mesAnoInicio
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: mesAnoFim
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: nomeFavorecido
+          in: query
+          schema:
+            type: string
+        - name: codigoFavorecido
+          in: query
+          schema:
+            type: string
+        - name: uf
+          in: query
+          schema:
+            type: string
+        - name: codigoIBGE
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Recursos recebidos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        "400":
+          description: "Parametros obrigatorios ausentes"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+
+  /portal-transparencia/despesas/por-orgao:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca despesas por orgao"
+      operationId: buscarDespesasPorOrgao
+      parameters:
+        - name: ano
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: orgaoSuperior
+          in: query
+          schema:
+            type: string
+        - name: orgao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Despesas por orgao"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/por-funcional-programatica:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca despesas por funcional programatica"
+      operationId: buscarPorFuncionalProgramatica
+      parameters:
+        - name: ano
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: funcao
+          in: query
+          schema:
+            type: string
+        - name: subfuncao
+          in: query
+          schema:
+            type: string
+        - name: programa
+          in: query
+          schema:
+            type: string
+        - name: acao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Despesas por funcional programatica"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/funcional-programatica/funcoes:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista funcoes"
+      operationId: listarFuncoes
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: anoInicio
+          in: query
+          schema:
+            type: integer
+        - name: codigo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Funcoes"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/funcional-programatica/subfuncoes:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista subfuncoes"
+      operationId: listarSubfuncoes
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: anoInicio
+          in: query
+          schema:
+            type: integer
+        - name: codigo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Subfuncoes"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/funcional-programatica/programas:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista programas"
+      operationId: listarProgramas
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: anoInicio
+          in: query
+          schema:
+            type: integer
+        - name: codigo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Programas"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/funcional-programatica/acoes:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista acoes"
+      operationId: listarAcoes
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: anoInicio
+          in: query
+          schema:
+            type: integer
+        - name: codigo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Acoes"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/funcional-programatica/listar:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Lista funcional programatica completa"
+      operationId: listarFuncionalProgramatica
+      parameters:
+        - name: ano
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Funcional programatica"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/documentos:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca documentos de despesa"
+      operationId: buscarDocumentos
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: dataEmissao
+          in: query
+          schema:
+            type: string
+        - name: fase
+          in: query
+          schema:
+            type: string
+        - name: unidadeGestora
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Documentos"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/documentos/{codigo}:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca documento por codigo"
+      operationId: buscarDocumentoPorCodigo
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Documento"
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /portal-transparencia/despesas/documentos-relacionados:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca documentos relacionados"
+      operationId: buscarDocumentosRelacionados
+      parameters:
+        - name: codigoDocumento
+          in: query
+          schema:
+            type: string
+        - name: fase
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Documentos relacionados"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/documentos-por-favorecido:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca documentos por favorecido"
+      operationId: buscarDocumentosPorFavorecido
+      parameters:
+        - name: codigoPessoa
+          in: query
+          schema:
+            type: string
+        - name: fase
+          in: query
+          schema:
+            type: string
+        - name: ano
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Documentos por favorecido"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/plano-orcamentario:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca despesas por plano orcamentario"
+      operationId: buscarPlanoOrcamentario
+      parameters:
+        - name: ano
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: codPlanoOrcamentario
+          in: query
+          schema:
+            type: string
+        - name: descPlanoOrcamentario
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Plano orcamentario"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/itens-de-empenho:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca itens de empenho"
+      operationId: buscarItensEmpenho
+      parameters:
+        - name: codigoDocumento
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Itens de empenho"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/itens-de-empenho/historico:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca historico de item de empenho"
+      operationId: buscarHistoricoItemEmpenho
+      parameters:
+        - name: codigoDocumento
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: sequencial
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Historico"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/favorecidos-finais-por-documento:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca favorecidos finais por documento"
+      operationId: buscarFavorecidosFinais
+      parameters:
+        - name: codigoDocumento
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Favorecidos finais"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/empenhos-impactados:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca empenhos impactados"
+      operationId: buscarEmpenhosImpactados
+      parameters:
+        - name: codigoDocumento
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: fase
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Empenhos impactados"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/despesas/por-funcional-programatica/movimentacao-liquida:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca movimentacao liquida"
+      operationId: buscarMovimentacaoLiquida
+      parameters:
+        - name: ano
+          in: query
+          schema:
+            type: integer
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: funcao
+          in: query
+          schema:
+            type: string
+        - name: subfuncao
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Movimentacao liquida"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  # ─── Portal Transparencia: Emendas ───────────────────────────
+  /portal-transparencia/emendas:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca emendas parlamentares"
+      operationId: buscarEmendas
+      parameters:
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: codigoEmenda
+          in: query
+          schema:
+            type: string
+        - name: numeroEmenda
+          in: query
+          schema:
+            type: string
+        - name: nomeAutor
+          in: query
+          schema:
+            type: string
+        - name: tipoEmenda
+          in: query
+          schema:
+            type: string
+        - name: ano
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "Lista de emendas"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /portal-transparencia/emendas/documentos/{codigo}:
+    get:
+      tags: [PortalTransparencia]
+      summary: "Busca documentos de uma emenda"
+      operationId: buscarDocumentosEmenda
+      parameters:
+        - name: codigo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: "Documentos da emenda"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+components:
+  schemas:
+    Erro:
+      type: object
+      properties:
+        erro:
+          type: string
+          description: "Mensagem de erro"
+      required:
+        - erro
+
+    DadosWrapper:
+      type: object
+      properties:
+        dados:
+          description: "Dados da resposta (tipo varia por endpoint)"
+
+    JobResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          description: "Identificador unico do job assincrono"
+        status:
+          type: string
+          enum: [processing]
+        total:
+          type: integer
+      required:
+        - jobId
+        - status
+
+    BatchOrgaoResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, processing]
+        results:
+          type: array
+          items:
+            type: object
+        message:
+          type: string
+
+    AnaliseOrgaoPNCPRequest:
+      type: object
+      properties:
+        cnpjs:
+          type: array
+          items:
+            type: string
+          minItems: 1
+        dataInicial:
+          type: string
+        dataFinal:
+          type: string
+      required:
+        - cnpjs
+        - dataInicial
+        - dataFinal
+
+    AnalisePublicacaoRequest:
+      type: object
+      properties:
+        tipo:
+          type: string
+          enum: [uf, municipio]
+        uf:
+          type: string
+        codigo_municipio_ibge:
+          type: string
+        data_inicial:
+          type: string
+        data_final:
+          type: string
+      required:
+        - tipo
+        - data_inicial
+        - data_final
+
+    BuscaRelacoesRequest:
+      type: object
+      properties:
+        cnpj:
+          type: string
+          description: "CNPJ a ser consultado"
+      required:
+        - cnpj
+
+    RelacoesResponse:
+      type: object
+      properties:
+        fornecedor:
+          type: object
+        doador:
+          type: object
+        despesas:
+          type: array
+          items:
+            type: object
+        receitas:
+          type: array
+          items:
+            type: object
+        totalDespesas:
+          type: integer
+        totalReceitas:
+          type: integer
+
+    ConsultaEntidadeRequest:
+      type: object
+      properties:
+        tipo:
+          type: string
+          description: "Tipo de entidade (candidato, fornecedor, doador, etc.)"
+        chave:
+          type: string
+          description: "Chave de busca (documento, nome, etc.)"
+      required:
+        - tipo
+        - chave
+
+    ConsultaEntidadeResponse:
+      type: object
+      properties:
+        tipo:
+          type: string
+        chave:
+          type: string
+        dados:
+          description: "Dados da entidade (polimorfico)"
+        erro:
+          type: string
+
+    LigacaoPoliticaRequest:
+      type: object
+      properties:
+        licitacoes:
+          type: array
+          items:
+            $ref: "#/components/schemas/LicitacaoItem"
+      required:
+        - licitacoes
+
+    LicitacaoItem:
+      type: object
+      properties:
+        numero_controle_pncp:
+          type: string
+        cpf_cnpj:
+          type: string
+        socios:
+          type: array
+          items:
+            $ref: "#/components/schemas/SocioItem"
+
+    SocioItem:
+      type: object
+      properties:
+        nome:
+          type: string
+        documento:
+          type: string
+
+    LigacaoPoliticaResponse:
+      type: object
+      properties:
+        documentosProcessados:
+          type: integer
+        resultados:
+          type: array
+          items:
+            type: object
+
+    TCUFilterRequest:
+      type: object
+      properties:
+        parteNome:
+          type: string
+        cpf:
+          type: string
+        cnpj:
+          type: string
+        uf:
+          type: string
+        municipio:
+          type: string
+
+    BuscaCandidatosRequest:
+      type: object
+      properties:
+        cargo_nome:
+          type: string
+        partido_id:
+          type: string
+        eleito:
+          type: string
+        sg_uf:
+          type: string
+
+    CandidatosResponse:
+      type: object
+      properties:
+        candidatos:
+          type: array
+          items:
+            type: object
+        total:
+          type: integer
+
+    BuscaDocumentoRequest:
+      type: object
+      properties:
+        documento:
+          type: string
+          description: "CPF ou CNPJ"
+      required:
+        - documento

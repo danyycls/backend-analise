@@ -1,0 +1,19 @@
+package usecase
+
+import (
+	"context"
+
+	senado "github.com/danyele/laceu/internal/shared/clients/senado"
+)
+
+type ListarMateriaTramitacaoUseCase struct {
+	client *senado.SenadoClient
+}
+
+func NovoListarMateriaTramitacaoUseCase(c *senado.SenadoClient) *ListarMateriaTramitacaoUseCase {
+	return &ListarMateriaTramitacaoUseCase{client: c}
+}
+
+func (u *ListarMateriaTramitacaoUseCase) Listar(ctx context.Context, params map[string]string) ([]senado.MateriaItem, error) {
+	return u.client.ListarMateriaTramitacao(ctx, params)
+}
