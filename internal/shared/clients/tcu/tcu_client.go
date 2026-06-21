@@ -63,12 +63,12 @@ func (c *TCUClient) doPostJSON(ctx context.Context, path string, body any, dest 
 					lastErr = rerr
 					log.Error("TCU: erro ler body", "attempt", i, "error", rerr)
 				} else {
-					if derr := json.Unmarshal(rBody, dest); derr == nil {
+					derr := json.Unmarshal(rBody, dest)
+					if derr == nil {
 						return nil
-					} else {
-						lastErr = derr
-						log.Error("TCU: erro decode", "attempt", i, "error", derr)
 					}
+					lastErr = derr
+					log.Error("TCU: erro decode", "attempt", i, "error", derr)
 				}
 			}
 		}

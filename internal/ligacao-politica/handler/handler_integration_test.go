@@ -41,8 +41,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "CNPJ de fornecedor encontrado",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertFornecedor(t, ctx, pool, "11222333000181", "Fornecedor Teste Ltda")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertFornecedor(ctx, t, pool, "11222333000181", "Fornecedor Teste Ltda")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -69,8 +69,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "CNPJ de fornecedor encontrado com prefixo 000 para CPF nao se aplica",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertFornecedor(t, ctx, pool, "11222333000181", "Fornecedor Teste Ltda")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertFornecedor(ctx, t, pool, "11222333000181", "Fornecedor Teste Ltda")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -90,8 +90,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "CPF de doador encontrado",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertDoador(t, ctx, pool, "11122233344", "Doador Teste")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertDoador(ctx, t, pool, "11122233344", "Doador Teste")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -114,8 +114,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "CPF de doador encontrado com prefixo 000",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertDoador(t, ctx, pool, "11122233344", "Doador Teste")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertDoador(ctx, t, pool, "11122233344", "Doador Teste")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -175,9 +175,9 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "Multiplas licitacoes (fornecedor + doador + sem dados)",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertFornecedor(t, ctx, pool, "11222333000181", "Fornecedor Teste Ltda")
-					testkit.InsertDoador(t, ctx, pool, "11122233344", "Doador Teste")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertFornecedor(ctx, t, pool, "11222333000181", "Fornecedor Teste Ltda")
+					testkit.InsertDoador(ctx, t, pool, "11122233344", "Doador Teste")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -199,8 +199,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "Enriquecimento OpenCNPJ para fornecedor CNPJ",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertFornecedor(t, ctx, pool, "11222333000181", "Fornecedor Teste Ltda")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertFornecedor(ctx, t, pool, "11222333000181", "Fornecedor Teste Ltda")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -238,8 +238,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
 				Name: "Enriquecimento TCU para documento com dados",
-				Fixtures: func(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-					testkit.InsertDoador(t, ctx, pool, "11122233344", "Doador Teste")
+				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+					testkit.InsertDoador(ctx, t, pool, "11122233344", "Doador Teste")
 				},
 				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
 					require.Equal(t, http.StatusOK, w.Code)
@@ -298,9 +298,9 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 
 			tc.mocks(ocMock, tcuMock, redisMock)
 
-			testkit.CleanAllTables(t, ctx, pool)
+			testkit.CleanAllTables(ctx, t, pool)
 			if tc.Fixtures != nil {
-				tc.Fixtures(t, ctx, pool)
+				tc.Fixtures(ctx, t, pool)
 			}
 
 			uc := usecase.NovoAnalisarLigacaoPoliticaUseCase(db, ocMock, tcuMock)

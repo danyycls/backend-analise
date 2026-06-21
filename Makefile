@@ -34,33 +34,34 @@ fmt: ## Formata o codigo
 	$(GO) fmt ./...
 
 fix: ## Formata codigo, organiza modulos e aplica autofix do lint
-	gofmt -w .
+	gofmt -w $(shell find . -path ./dataCSV -prune -o -name '*.go' -print)
 	$(GO) mod tidy
 	$(GO) mod verify
 	-$(GOLINT) run --fix ./... 2>&1 || true
 
 fmt-check: ## Verifica se o codigo esta formatado
-	@test -z "$$($(GOFMT) -l .)" || (echo "Arquivos precisam ser formatados:"; $(GOFMT) -l .; exit 1)
+	@files=$$(find . -path ./dataCSV -prune -o -name '*.go' -print); \
+	test -z "$$($(GOFMT) -l $$files)" || (echo "Arquivos precisam ser formatados:"; $(GOFMT) -l $$files; exit 1)
 
 test: ## Executa todos os testes (unitarios + integracao)
-	$(GO) test ./... -count=1 -timeout 300s
+	$(GO) test $(shell $(GO) list ./... | grep -v /dataCSV) -count=1 -timeout 300s
 
 test-unit: ## Executa apenas testes unitarios (pula integracao com servicos externos)
-	$(GO) test -short ./... -count=1 -timeout 60s
+	$(GO) test -short $(shell $(GO) list ./... | grep -v /dataCSV) -count=1 -timeout 60s
 
 test-integration: ## Executa apenas testes de integracao (testcontainers, servicos externos)
 	$(GO) test -count=1 -timeout 300s -run "TestRepositorioFornecedores|TestSucesso|TestFalha" ./internal/esferas-brasileiras/tse/ ./internal/ligacao-politica/handler/
 
 test-cover: ## Executa testes com cobertura
-	$(GO) test -short ./... -count=1 -coverprofile=coverage.out
+	$(GO) test -short $(shell $(GO) list ./... | grep -v /dataCSV) -count=1 -coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out
 	$(GO) tool cover -html=coverage.out -o coverage.html
 
 test-race: ## Executa testes com detector de race conditions
-	$(GO) test -short ./... -race -count=1
+	$(GO) test -short $(shell $(GO) list ./... | grep -v /dataCSV) -race -count=1
 
 vet: ## Executa go vet
-	$(GO) vet ./...
+	$(GO) vet $(shell $(GO) list ./... | grep -v /dataCSV)
 
 tidy: ## Organiza as dependencias do modulo
 	$(GO) mod tidy

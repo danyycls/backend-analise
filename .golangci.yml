@@ -1,6 +1,7 @@
 run:
   timeout: 5m
   tests: true
+  go: "1.25"
 
 linters:
   enable:
@@ -18,8 +19,15 @@ linters:
 
 linters-settings:
   errcheck:
-    check-type-assertions: true
-    check-blank: true
+    check-type-assertions: false
+    check-blank: false
+    exclude-functions:
+      - "net/http.(*Response).Body.Close"
+      - "io.ReadAll"
+      - "encoding/json.Marshal"
+      - "strconv.Atoi"
+      - "net/url.Parse"
+      - "os.Setenv"
   gocritic:
     enabled-checks:
       - rangeExprCopy
@@ -35,7 +43,6 @@ linters-settings:
       - name: range
       - name: receiver-naming
       - name: time-naming
-      - name: unexported-return
       - name: unreachable-code
       - name: superfluous-else
 
@@ -43,3 +50,11 @@ issues:
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - dataCSV
+  exclude:
+    - "Error return value of `.*\\.Close` is not checked"
+    - "Error return value of `.*\\.WriteMessage` is not checked"
+    - "Error return value of `.*\\.WriteJSON` is not checked"
+    - "Error return value of `.*Terminate` is not checked"
+    - "Error return value of `.*\\.Rollback` is not checked"

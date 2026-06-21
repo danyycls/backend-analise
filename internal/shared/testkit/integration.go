@@ -22,7 +22,7 @@ import (
 
 type IntegrationTestCase struct {
 	Name     string
-	Fixtures func(t *testing.T, ctx context.Context, pool *pgxpool.Pool)
+	Fixtures func(ctx context.Context, t *testing.T, pool *pgxpool.Pool)
 	Assert   func(t *testing.T, w *httptest.ResponseRecorder)
 }
 

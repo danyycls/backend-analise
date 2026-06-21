@@ -17,20 +17,20 @@ import (
 func main() {
 	log := logger.New("Main: main: ListenAndServe")
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancelar()
 
 	pool, err := database.NovaPool(ctx, database.ConfigFromEnv())
 	if err != nil {
 		log := logger.New("Main: main: NovaPool")
 		log.Fatal("erro ao criar pgx pool", "erro", err)
 	}
+	defer cancelar()
 	defer pool.Close()
 
 	poolDB := database.NewPoolDB(pool)
 
 	if err := migracao.AplicarSQLPool(ctx, pool, "internal/shared/migrations/schema"); err != nil {
-		log := logger.New("Main: main: AplicarSQLPool")
-		log.Fatal("erro ao aplicar migrations", "erro", err)
+		logger.New("Main: main: AplicarSQLPool").Error("erro ao aplicar migrations", "erro", err)
+		os.Exit(1) //nolint:gocritic
 	}
 
 	a := app.NovoApp(poolDB, obterDiretorioCSV())

@@ -128,7 +128,7 @@ type importarCSVUseCase struct {
 }
 
 // NovoImportarCSVUseCase cria uma nova instância
-func NovoImportarCSVUseCase(pool *pgxpool.Pool, LeitorCSVService service.LeitorCSVServiceInterface) ImportarCSVUseCase {
+func NovoImportarCSVUseCase(pool *pgxpool.Pool, leitorCSVService service.LeitorCSVServiceInterface) ImportarCSVUseCase {
 	batchSize := 2000
 	if v := os.Getenv("IMPORT_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -151,7 +151,7 @@ func NovoImportarCSVUseCase(pool *pgxpool.Pool, LeitorCSVService service.LeitorC
 	return &importarCSVUseCase{
 		pgPool:           pool,
 		pgRepo:           repositorios.Novo(pool),
-		LeitorCSVService: LeitorCSVService,
+		LeitorCSVService: leitorCSVService,
 		batchSize:        batchSize,
 		maxWorkers:       maxWorkers,
 		arquivosPorLote:  arquivosPorLote,
@@ -160,7 +160,7 @@ func NovoImportarCSVUseCase(pool *pgxpool.Pool, LeitorCSVService service.LeitorC
 
 // ProgressoEvento retorna contadores numericos para o SSE de progression
 func (u *importarCSVUseCase) ProgressoEvento() EventoProgressoImportacao {
-	if u.progresso == nil {
+	if u.progression == nil {
 		return EventoProgressoImportacao{}
 	}
 	return u.progression.Evento()
@@ -188,7 +188,7 @@ func (u *importarCSVUseCase) Executar(ctx context.Context, input ImportarCSVRequ
 	}
 
 	porDir := agruparPorDiretorio(arquivos)
-	u.progresso = &ProgressoImportacao{
+	u.progression = &ProgressoImportacao{
 		Total:           len(arquivos),
 		TotalDiretorios: len(porDir),
 	}

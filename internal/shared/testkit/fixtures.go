@@ -16,7 +16,7 @@ var TabelasParaLimpar = []string{
 	"receita_doador_originario_candidato", "receita_doador_originario_orgao_partidario",
 }
 
-func InsertFornecedor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, cpfCnpj, nome string) {
+func InsertFornecedor(ctx context.Context, t *testing.T, pool *pgxpool.Pool, cpfCnpj, nome string) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO fornecedor (id, cpf_cnpj, nome, created_at, updated_at)
@@ -26,7 +26,7 @@ func InsertFornecedor(t *testing.T, ctx context.Context, pool *pgxpool.Pool, cpf
 	require.NoError(t, err)
 }
 
-func InsertDoador(t *testing.T, ctx context.Context, pool *pgxpool.Pool, cpfCnpj, nome string) {
+func InsertDoador(ctx context.Context, t *testing.T, pool *pgxpool.Pool, cpfCnpj, nome string) {
 	t.Helper()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO doador (id, cpf_cnpj, nome, created_at, updated_at)
@@ -36,7 +36,7 @@ func InsertDoador(t *testing.T, ctx context.Context, pool *pgxpool.Pool, cpfCnpj
 	require.NoError(t, err)
 }
 
-func CleanTables(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tables ...string) {
+func CleanTables(ctx context.Context, t *testing.T, pool *pgxpool.Pool, tables ...string) {
 	t.Helper()
 	for _, tname := range tables {
 		_, err := pool.Exec(ctx, "DELETE FROM "+tname)
@@ -44,6 +44,6 @@ func CleanTables(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tables .
 	}
 }
 
-func CleanAllTables(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
-	CleanTables(t, ctx, pool, TabelasParaLimpar...)
+func CleanAllTables(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	CleanTables(ctx, t, pool, TabelasParaLimpar...)
 }

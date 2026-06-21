@@ -122,33 +122,34 @@ func (p *PNCPClient) buscarPublicacaoResponse(ctx context.Context, params map[st
 
 		log.Info("PNCP publicacao: solicitando", "pagina", pagina, "url", u.String(), "attempt", i)
 		resp, err := p.client.Do(req)
-		if err != nil {
+		switch {
+		case err != nil:
 			lastErr = err
 			log.Error("PNCP publicacao: erro na requisicao", "attempt", i, "error", err)
-		} else if resp.StatusCode == 204 {
+		case resp.StatusCode == 204:
 			resp.Body.Close()
 			log.Info("PNCP publicacao: 204 sem conteudo para municipio")
 			return &PublicacaoResponse{}, nil
-		} else if resp.StatusCode != 200 {
+		case resp.StatusCode != 200:
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			lastErr = fmt.Errorf("pncp publicacao status %d: %s", resp.StatusCode, string(body))
 			log.Error("PNCP publicacao: status nao 200", "attempt", i, "error", lastErr)
-		} else {
+		default:
 			body, rerr := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			if rerr != nil {
 				lastErr = rerr
 				log.Error("PNCP publicacao: erro ler body", "attempt", i, "error", rerr)
-			} else {
-				var resp PublicacaoResponse
-				if derr := json.Unmarshal(body, &resp); derr == nil {
-					return &resp, nil
-				} else {
-					lastErr = derr
-					log.Error("PNCP publicacao: erro decode", "attempt", i, "error", derr)
-				}
+				continue
 			}
+			var pubResp PublicacaoResponse
+			derr := json.Unmarshal(body, &pubResp)
+			if derr == nil {
+				return &pubResp, nil
+			}
+			lastErr = derr
+			log.Error("PNCP publicacao: erro decode", "attempt", i, "error", derr)
 		}
 
 		select {

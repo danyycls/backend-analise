@@ -13,5 +13,3 @@ type ArquivoImportacao struct {
 	Nome            string
 	Tipo            string
 }
-
-type tipoInfo struct{}

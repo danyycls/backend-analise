@@ -171,7 +171,7 @@ func remapearFornecedorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUI
 				despesa.FornecedorID = ponteiroUUID(novo)
 			} else {
 				log.Info("fornecedor nao mapeado - definindo fornecedor_id NULL",
-					"fornecedor_id", (*despesa.FornecedorID).String(), "despesa_id", despesa.ID)
+					"fornecedor_id", despesa.FornecedorID.String(), "despesa_id", despesa.ID)
 				despesa.FornecedorID = nil
 			}
 		}
@@ -182,7 +182,7 @@ func remapearFornecedorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUI
 				despesa.FornecedorID = ponteiroUUID(novo)
 			} else {
 				log.Info("fornecedor nao mapeado - definindo fornecedor_id NULL",
-					"fornecedor_id", (*despesa.FornecedorID).String(), "despesa_orgao_partidario_id", despesa.ID)
+					"fornecedor_id", despesa.FornecedorID.String(), "despesa_orgao_partidario_id", despesa.ID)
 				despesa.FornecedorID = nil
 			}
 		}
@@ -200,7 +200,7 @@ func remapearDoadorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUID]uu
 				receita.DoadorID = ponteiroUUID(novo)
 			} else {
 				log.Info("doador nao mapeado - definindo doador_id NULL",
-					"doador_id", (*receita.DoadorID).String(), "receita_candidato_id", receita.ID)
+					"doador_id", receita.DoadorID.String(), "receita_candidato_id", receita.ID)
 				receita.DoadorID = nil
 			}
 		}
@@ -211,7 +211,7 @@ func remapearDoadorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUID]uu
 				receita.DoadorID = ponteiroUUID(novo)
 			} else {
 				log.Info("doador nao mapeado - definindo doador_id NULL",
-					"doador_id", (*receita.DoadorID).String(), "receita_orgao_partidario_id", receita.ID)
+					"doador_id", receita.DoadorID.String(), "receita_orgao_partidario_id", receita.ID)
 				receita.DoadorID = nil
 			}
 		}
