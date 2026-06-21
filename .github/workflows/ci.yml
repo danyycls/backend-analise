@@ -88,6 +88,6 @@ jobs:
             !/dataCSV
           sparse-checkout-cone-mode: false
       - name: Construir imagem Docker
-        run: docker build -t laceu .
+        run: docker build -t podp .
 
 

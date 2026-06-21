@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/esferas-brasileiras/tse/usecase"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
 
 	"github.com/gin-gonic/gin"
 )

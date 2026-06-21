@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	senadoClient "github.com/danyele/laceu/internal/shared/clients/senado"
-	"github.com/danyele/laceu/internal/shared/types"
+	senadoClient "github.com/danyele/podp/internal/shared/clients/senado"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarSenadoresRequest struct {

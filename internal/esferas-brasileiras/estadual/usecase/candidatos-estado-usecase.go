@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	estadual "github.com/danyele/laceu/internal/esferas-brasileiras/estadual"
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	"github.com/danyele/laceu/internal/shared/database"
-	"github.com/danyele/laceu/internal/shared/types"
+	estadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	"github.com/danyele/podp/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarCandidatosRequest struct {

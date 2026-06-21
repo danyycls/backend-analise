@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/portaltransparencia/pessoas/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/pessoas/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/clients/portaltransparencia"
+	"github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 )
 
 func boolQuery(c *gin.Context, key string) string {

@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const tabelaMigracoesProjeto = "liceu_schema_migrations"
+const tabelaMigracoesProjeto = "podp_schema_migrations"
 
 func AplicarSQLPool(ctx context.Context, pool *pgxpool.Pool, diretorio string) error {
 	conn, err := pool.Acquire(ctx)

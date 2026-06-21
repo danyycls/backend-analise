@@ -1,7 +1,7 @@
 package repositorio
 
 import (
-	"github.com/danyele/laceu/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/database"
 )
 
 type Repositorio struct {

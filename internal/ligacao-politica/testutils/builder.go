@@ -5,8 +5,8 @@ import (
 
 	"github.com/brianvoe/gofakeit/v7"
 
-	"github.com/danyele/laceu/internal/ligacao-politica/usecase"
-	"github.com/danyele/laceu/internal/shared/database"
+	"github.com/danyele/podp/internal/ligacao-politica/usecase"
+	"github.com/danyele/podp/internal/shared/database"
 )
 
 type AnaliseRequestBuilder struct {

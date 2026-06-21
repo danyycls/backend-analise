@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/types"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func MontarDespesaCandidatoDetalhada(ctx context.Context, repo *repositorio.Repositorio, d *types.DespesaCandidato) tsetypes.DespesaCandidatoDetalhada {

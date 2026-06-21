@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/types"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 // ---------------------------------------------------------------------------

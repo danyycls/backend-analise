@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 )
 
 // SICONFIClient é o cliente HTTP para a API de dados abertos do SICONFI

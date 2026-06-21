@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type OpenCNPJClient struct {

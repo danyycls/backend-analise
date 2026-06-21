@@ -3,12 +3,12 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/senadores/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
 )
 
 type ListarSenadoresHandler struct {

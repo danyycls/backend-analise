@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	senado "github.com/danyele/laceu/internal/shared/clients/senado"
+	senado "github.com/danyele/podp/internal/shared/clients/senado"
 )
 
 type ListarMandatosUseCase struct {

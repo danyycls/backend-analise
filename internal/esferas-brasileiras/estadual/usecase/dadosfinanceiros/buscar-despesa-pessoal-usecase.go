@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	siconfiClient "github.com/danyele/laceu/internal/shared/clients/siconfi"
-	"github.com/danyele/laceu/internal/shared/logger"
-	"github.com/danyele/laceu/internal/shared/types"
+	siconfiClient "github.com/danyele/podp/internal/shared/clients/siconfi"
+	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarDespesaPessoalRequest struct {

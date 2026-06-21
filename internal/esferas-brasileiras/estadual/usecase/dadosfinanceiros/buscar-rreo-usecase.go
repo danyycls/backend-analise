@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	siconfiClient "github.com/danyele/laceu/internal/shared/clients/siconfi"
-	"github.com/danyele/laceu/internal/shared/types"
+	siconfiClient "github.com/danyele/podp/internal/shared/clients/siconfi"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarRREORequest struct {

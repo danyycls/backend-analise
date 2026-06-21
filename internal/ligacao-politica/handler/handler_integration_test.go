@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/danyele/laceu/internal/ligacao-politica/handler"
-	"github.com/danyele/laceu/internal/ligacao-politica/usecase"
-	opencnpjPkg "github.com/danyele/laceu/internal/shared/clients/opencnpj"
-	tcuPkg "github.com/danyele/laceu/internal/shared/clients/tcu"
-	redisPkg "github.com/danyele/laceu/internal/shared/redis"
-	"github.com/danyele/laceu/internal/shared/testkit"
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/ligacao-politica/handler"
+	"github.com/danyele/podp/internal/ligacao-politica/usecase"
+	opencnpjPkg "github.com/danyele/podp/internal/shared/clients/opencnpj"
+	tcuPkg "github.com/danyele/podp/internal/shared/clients/tcu"
+	redisPkg "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/testkit"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type analisarTestCase struct {

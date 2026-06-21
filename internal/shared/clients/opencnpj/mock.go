@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/danyele/laceu/internal/shared/types"
+	types "github.com/danyele/podp/internal/shared/types"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -5,8 +5,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/usecase"
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/usecase"
+	"github.com/danyele/podp/internal/shared/logger"
 
 	"github.com/gin-gonic/gin"
 )

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/clients/ibge"
+	"github.com/danyele/podp/internal/shared/clients/ibge"
 )
 
 type ListarMunicipiosHandler struct {

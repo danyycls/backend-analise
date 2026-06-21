@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	portalClient "github.com/danyele/laceu/internal/shared/clients/portaltransparencia"
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
-	"github.com/danyele/laceu/internal/shared/types"
+	portalClient "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarRecursosFederaisRequest struct {

@@ -1,6 +1,6 @@
 package tsetypes
 
-import "github.com/danyele/laceu/internal/shared/types"
+import "github.com/danyele/podp/internal/shared/types"
 
 type (
 	Candidato                              = types.Candidato

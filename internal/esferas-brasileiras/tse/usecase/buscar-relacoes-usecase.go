@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/database"
-	"github.com/danyele/laceu/internal/shared/logger"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/logger"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type BuscarRelacoesUseCase struct {

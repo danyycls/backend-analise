@@ -5,7 +5,7 @@ package opencnpj
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type Client interface {

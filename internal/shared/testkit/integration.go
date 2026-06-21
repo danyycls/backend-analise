@@ -15,7 +15,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/danyele/laceu/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/database"
 
 	tctest "github.com/testcontainers/testcontainers-go"
 )
@@ -106,14 +106,14 @@ func registerBaselineIfNeeded(ctx context.Context, conn *pgxpool.Conn, entries [
 	var existe int64
 	row := conn.QueryRow(ctx, `
 		SELECT COUNT(*) FROM information_schema.tables
-		WHERE table_schema = 'public' AND table_name = 'liceu_schema_migrations'
+		WHERE table_schema = 'public' AND table_name = 'podp_schema_migrations'
 	`)
 	if err := row.Scan(&existe); err != nil {
 		return err
 	}
 	if existe == 0 {
 		_, err := conn.Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS liceu_schema_migrations (
+			CREATE TABLE IF NOT EXISTS podp_schema_migrations (
 				nome VARCHAR(255) PRIMARY KEY,
 				aplicada_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			)
@@ -122,7 +122,7 @@ func registerBaselineIfNeeded(ctx context.Context, conn *pgxpool.Conn, entries [
 	}
 
 	var total int64
-	row2 := conn.QueryRow(ctx, `SELECT COUNT(*) FROM liceu_schema_migrations`)
+	row2 := conn.QueryRow(ctx, `SELECT COUNT(*) FROM podp_schema_migrations`)
 	if err := row2.Scan(&total); err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func registerBaselineIfNeeded(ctx context.Context, conn *pgxpool.Conn, entries [
 
 	for _, e := range entries {
 		if !e.IsDir() && filepath.Ext(e.Name()) == ".sql" && strings.HasSuffix(e.Name(), ".up.sql") {
-			_, err := conn.Exec(ctx, `INSERT INTO liceu_schema_migrations (nome) VALUES ($1)`, e.Name())
+			_, err := conn.Exec(ctx, `INSERT INTO podp_schema_migrations (nome) VALUES ($1)`, e.Name())
 			if err != nil {
 				return err
 			}

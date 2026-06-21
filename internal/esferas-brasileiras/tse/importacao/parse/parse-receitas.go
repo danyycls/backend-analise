@@ -3,12 +3,12 @@ package parse
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 
 	"github.com/google/uuid"
 
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
-	"github.com/danyele/laceu/internal/shared/types"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func (p *ProcessadorLeitorCSV) processarReceitaCandidato(ctx context.Context, caminho string) (int, error) {

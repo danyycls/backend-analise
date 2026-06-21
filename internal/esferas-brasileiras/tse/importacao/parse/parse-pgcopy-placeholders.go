@@ -3,10 +3,10 @@ package parse
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 
-	repositorios "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/repositorios"
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
+	repositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

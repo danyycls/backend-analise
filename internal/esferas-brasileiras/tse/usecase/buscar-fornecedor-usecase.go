@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/database"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/database"
 
 	"github.com/jackc/pgx/v5"
 )

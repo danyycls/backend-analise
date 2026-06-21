@@ -1,8 +1,8 @@
 package parse
 
 import (
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
-	"github.com/danyele/laceu/internal/shared/types"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
+	"github.com/danyele/podp/internal/shared/types"
 	"github.com/google/uuid"
 )
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func (r *Repositorio) CandidatosEleitosPorUF(ctx context.Context, ufSigla string, cargos []string) ([]*types.Candidato, error) {

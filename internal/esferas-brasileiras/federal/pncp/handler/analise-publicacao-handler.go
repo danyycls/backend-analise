@@ -7,15 +7,15 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/pncp/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/pncp/usecase"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
 
-	pncp "github.com/danyele/laceu/internal/shared/clients/pncp"
+	pncp "github.com/danyele/podp/internal/shared/clients/pncp"
 )
 
 type pubJobState struct {

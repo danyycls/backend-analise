@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	parse "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/parse"
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
+	parse "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/parse"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
 )
 
 func (s *LeitorCSVService) NovoProcessador() *parse.ProcessadorLeitorCSV {

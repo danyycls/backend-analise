@@ -1,6 +1,6 @@
 .PHONY: all build run lint lint-fix fix fmt fmt-check test test-unit test-integration test-cover test-race vet tidy deps generate generate-mocks generate-check clean help
 
-APP_NAME := laceu
+APP_NAME := podp
 CMD_DIR  := .
 API_DIR  := api
 GEN_DIR  := internal/generated

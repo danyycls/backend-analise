@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	ws "github.com/danyele/laceu/internal/shared/websocket"
+	ws "github.com/danyele/podp/internal/shared/websocket"
 
-	pncp "github.com/danyele/laceu/internal/shared/clients/pncp"
+	pncp "github.com/danyele/podp/internal/shared/clients/pncp"
 )
 
 type WSOrgaoStreamHandler struct {

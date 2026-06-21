@@ -1,6 +1,6 @@
 package pncp
 
-import "github.com/danyele/laceu/internal/shared/types"
+import "github.com/danyele/podp/internal/shared/types"
 
 type CategoriaProcesso struct {
 	ID    *int                   `json:"id"`

@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/senadores/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 )
 
 type BuscarSenadorHandler struct {

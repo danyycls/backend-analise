@@ -27,7 +27,7 @@ func ConfigFromEnv() Config {
 		Port:            getEnv("DB_PORT", "5432"),
 		User:            getEnv("DB_USER", "postgres"),
 		Password:        getEnv("DB_PASSWORD", "postgres"),
-		Database:        getEnv("DB_NAME", "liceu"),
+		Database:        getEnv("DB_NAME", "podp"),
 		MaxConns:        8,
 		MinConns:        2,
 		MaxConnLifetime: 30 * time.Minute,

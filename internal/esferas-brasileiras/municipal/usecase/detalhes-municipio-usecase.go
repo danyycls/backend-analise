@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	pncpClient "github.com/danyele/laceu/internal/shared/clients/pncp"
-	portalClient "github.com/danyele/laceu/internal/shared/clients/portaltransparencia"
-	"github.com/danyele/laceu/internal/shared/clients/siconfi"
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
-	"github.com/danyele/laceu/internal/shared/types"
+	pncpClient "github.com/danyele/podp/internal/shared/clients/pncp"
+	portalClient "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
+	"github.com/danyele/podp/internal/shared/clients/siconfi"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaMunicipalBuscarDetalhesUseCase struct {

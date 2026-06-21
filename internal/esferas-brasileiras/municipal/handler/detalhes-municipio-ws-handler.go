@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/municipal/usecase"
-	"github.com/danyele/laceu/internal/shared/types"
-	ws "github.com/danyele/laceu/internal/shared/websocket"
+	"github.com/danyele/podp/internal/esferas-brasileiras/municipal/usecase"
+	"github.com/danyele/podp/internal/shared/types"
+	ws "github.com/danyele/podp/internal/shared/websocket"
 )
 
 type EsferaMunicipalBuscarDetalhesWSHandler struct {

@@ -3,7 +3,7 @@ package parse
 import (
 	"context"
 	"fmt"
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
 )
 
 func ProcessarArquivo(ctx context.Context, processador *ProcessadorLeitorCSV, arquivo tipos.ArquivoImportacao) (int, error) {

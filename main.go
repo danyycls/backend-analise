@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 
-	"github.com/danyele/laceu/internal/app"
-	database "github.com/danyele/laceu/internal/shared/database"
-	migracao "github.com/danyele/laceu/internal/shared/migrations"
+	"github.com/danyele/podp/internal/app"
+	database "github.com/danyele/podp/internal/shared/database"
+	migracao "github.com/danyele/podp/internal/shared/migrations"
 )
 
 func main() {

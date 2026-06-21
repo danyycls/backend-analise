@@ -1,9 +1,9 @@
 package usecase
 
 import (
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/clients/tcu"
-	"github.com/danyele/laceu/internal/shared/types"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/clients/tcu"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type AnalisarLigacaoPoliticaRequest struct {

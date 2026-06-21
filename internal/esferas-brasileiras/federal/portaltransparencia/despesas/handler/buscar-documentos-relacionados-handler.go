@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/portaltransparencia/despesas/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/despesas/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/clients/portaltransparencia"
+	"github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 )
 
 type BuscarDocumentosRelacionadosHandler struct {

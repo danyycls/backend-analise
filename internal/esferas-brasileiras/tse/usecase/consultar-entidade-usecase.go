@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/database"
-	"github.com/danyele/laceu/internal/shared/types"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type ConsultarEntidadeUseCase struct {

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func BuildFornecedorDTO(data *types.OpenCNPJResponse) *types.FornecedorOpenCNPJ {

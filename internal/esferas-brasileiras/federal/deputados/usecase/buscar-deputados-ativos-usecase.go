@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/clients/deputados"
+	"github.com/danyele/podp/internal/shared/clients/deputados"
 )
 
 type EsferaFederalBuscarDeputadosAtivosRequest struct {

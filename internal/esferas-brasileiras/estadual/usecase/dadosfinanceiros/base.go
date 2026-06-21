@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danyele/laceu/internal/shared/clients/ibge"
-	siconfiClient "github.com/danyele/laceu/internal/shared/clients/siconfi"
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/clients/ibge"
+	siconfiClient "github.com/danyele/podp/internal/shared/clients/siconfi"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
 )
 
 type BaseFinanceiroUseCase struct {

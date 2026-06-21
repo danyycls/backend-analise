@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/clients/ibge"
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/clients/ibge"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualListarEstadosRequest struct{}

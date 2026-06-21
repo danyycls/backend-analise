@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"github.com/danyele/laceu/internal/shared/clients/portaltransparencia"
+	"github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 )
 
 type BuscarCartoesUseCase struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/danyele/laceu/internal/shared/clients/deputados"
+	"github.com/danyele/podp/internal/shared/clients/deputados"
 )
 
 type EsferaFederalBuscarDespesasDeputadoRequest struct {

@@ -3,12 +3,12 @@ package handler
 import (
 	"net/http"
 
-	senadores "github.com/danyele/laceu/internal/esferas-brasileiras/federal/senadores"
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/senadores/usecase"
+	senadores "github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/logger"
 )
 
 type ListarAgendaDiaHandler struct {

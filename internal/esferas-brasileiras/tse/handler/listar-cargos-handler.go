@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/tse/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
 
 	"github.com/gin-gonic/gin"
 )

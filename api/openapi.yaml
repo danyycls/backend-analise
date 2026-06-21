@@ -10,7 +10,7 @@ info:
   version: "0.1.0"
   contact:
     name: "LICEU"
-    url: "https://github.com/danyele/laceu"
+    url: "https://github.com/danyele/podp"
 
 servers:
   - url: "http://localhost:8080"

@@ -6,15 +6,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/danyele/laceu/internal/shared/database"
-	"github.com/danyele/laceu/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/logger"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/clients/opencnpj"
-	tcu "github.com/danyele/laceu/internal/shared/clients/tcu"
-	"github.com/danyele/laceu/internal/shared/types"
-	"github.com/danyele/laceu/internal/shared/utils"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/clients/opencnpj"
+	tcu "github.com/danyele/podp/internal/shared/clients/tcu"
+	"github.com/danyele/podp/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/utils"
 )
 
 type AnalisarLigacaoPoliticaUseCase struct {

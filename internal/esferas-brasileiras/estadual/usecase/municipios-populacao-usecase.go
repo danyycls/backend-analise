@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/danyele/laceu/internal/shared/clients/ibge"
-	"github.com/danyele/laceu/internal/shared/logger"
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/clients/ibge"
+	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarMunicipiosPopulacaoRequest struct {

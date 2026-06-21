@@ -3,9 +3,9 @@ package utils
 import (
 	"context"
 
-	repositorio "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	tsetypes "github.com/danyele/laceu/internal/esferas-brasileiras/tse/types"
-	"github.com/danyele/laceu/internal/shared/types"
+	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func MontarFornecedorDetalhado(ctx context.Context, repo *repositorio.Repositorio, f *types.Fornecedor) *tsetypes.FornecedorDetalhado {

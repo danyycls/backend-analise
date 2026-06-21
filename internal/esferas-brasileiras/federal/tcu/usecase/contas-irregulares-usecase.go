@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	client "github.com/danyele/laceu/internal/shared/clients/tcu"
+	client "github.com/danyele/podp/internal/shared/clients/tcu"
 )
 
 type ContasIrregularesUseCase struct {

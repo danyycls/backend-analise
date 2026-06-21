@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 func (r *Repositorio) DespesasCandidatoBuscarPorPrestacaoID(ctx context.Context, prestacaoID uuid.UUID) ([]*types.DespesaCandidato, error) {

@@ -7,14 +7,14 @@ import (
 
 	"github.com/google/uuid"
 
-	estadual "github.com/danyele/laceu/internal/esferas-brasileiras/estadual"
-	repositorioTSE "github.com/danyele/laceu/internal/esferas-brasileiras/tse/repositorio"
-	deputados "github.com/danyele/laceu/internal/shared/clients/deputados"
-	"github.com/danyele/laceu/internal/shared/clients/ibge"
-	senadoClient "github.com/danyele/laceu/internal/shared/clients/senado"
-	"github.com/danyele/laceu/internal/shared/database"
-	"github.com/danyele/laceu/internal/shared/logger"
-	"github.com/danyele/laceu/internal/shared/types"
+	estadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual"
+	repositorioTSE "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
+	deputados "github.com/danyele/podp/internal/shared/clients/deputados"
+	"github.com/danyele/podp/internal/shared/clients/ibge"
+	senadoClient "github.com/danyele/podp/internal/shared/clients/senado"
+	"github.com/danyele/podp/internal/shared/database"
+	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarDadosCompletosEstadoRequest struct {

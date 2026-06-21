@@ -14,11 +14,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	parse "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/parse"
-	repositorios "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/repositorios"
-	"github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/service"
-	tipos "github.com/danyele/laceu/internal/esferas-brasileiras/tse/importacao/types"
-	"github.com/danyele/laceu/internal/shared/logger"
+	parse "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/parse"
+	repositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
+	"github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/service"
+	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
+	"github.com/danyele/podp/internal/shared/logger"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"

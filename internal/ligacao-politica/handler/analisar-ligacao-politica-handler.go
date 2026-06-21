@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/danyele/laceu/internal/ligacao-politica/usecase"
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
+	"github.com/danyele/podp/internal/ligacao-politica/usecase"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
 )
 
 type AnalisarLigacaoPoliticaHandler struct {

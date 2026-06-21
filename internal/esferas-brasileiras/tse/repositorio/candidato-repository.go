@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/danyele/laceu/internal/shared/logger"
-	"github.com/danyele/laceu/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type CargoDistinto struct {

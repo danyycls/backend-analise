@@ -3,11 +3,11 @@ package handler
 import (
 	"net/http"
 
-	"github.com/danyele/laceu/internal/esferas-brasileiras/federal/tcu/usecase"
+	"github.com/danyele/podp/internal/esferas-brasileiras/federal/tcu/usecase"
 
 	"github.com/gin-gonic/gin"
 
-	client "github.com/danyele/laceu/internal/shared/clients/tcu"
+	client "github.com/danyele/podp/internal/shared/clients/tcu"
 )
 
 type InidoneosHandler struct {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	deputados "github.com/danyele/laceu/internal/shared/clients/deputados"
-	"github.com/danyele/laceu/internal/shared/types"
+	deputados "github.com/danyele/podp/internal/shared/clients/deputados"
+	"github.com/danyele/podp/internal/shared/types"
 )
 
 type EsferaEstadualBuscarDeputadosRequest struct {

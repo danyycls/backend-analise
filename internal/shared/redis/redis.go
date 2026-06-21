@@ -14,7 +14,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-const prefixoChave = "liceu:cache:"
+const prefixoChave = "podp:cache:"
 const ttlPadrao = 30 * 24 * time.Hour
 
 type RedisCache struct {

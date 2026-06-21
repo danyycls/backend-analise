@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/danyele/laceu/internal/shared/clients/opencnpj"
-	"github.com/danyele/laceu/internal/shared/clients/pncp"
-	"github.com/danyele/laceu/internal/shared/logger"
-	redis "github.com/danyele/laceu/internal/shared/redis"
-	"github.com/danyele/laceu/internal/shared/types"
-	"github.com/danyele/laceu/internal/shared/utils"
+	"github.com/danyele/podp/internal/shared/clients/opencnpj"
+	"github.com/danyele/podp/internal/shared/clients/pncp"
+	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/utils"
 )
 
 const maxConcorrencia = 5
