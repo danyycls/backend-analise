@@ -43,9 +43,9 @@ type Contrato struct {
 	CodigoTipoContrato        *int                      `json:"codigoTipoContrato"`
 	CodigoUG                  *string                   `json:"codigoUg"`
 	DataAssinatura            *string                   `json:"dataAssinatura"`
-	DataInicioVigencia        *string                   `json:"dataInicioVigencia"`
-	DataPublicacao            *string                   `json:"dataPublicacao"`
-	DataTerminoVigencia       *string                   `json:"dataTerminoVigencia"`
+	DataInicioVigencia        *string                   `json:"dataVigenciaInicio"`
+	DataPublicacao            *string                   `json:"dataPublicacaoPncp"`
+	DataTerminoVigencia       *string                   `json:"dataVigenciaFim"`
 	FonteOrcamentaria         *FonteOrcamentaria        `json:"fonteOrcamentaria"`
 	Fornecedor                *types.FornecedorOpenCNPJ `json:"fornecedor"`
 	ModalidadeNome            *string                   `json:"modalidadeNome"`
@@ -58,7 +58,7 @@ type Contrato struct {
 	NumeroCNPJ                *string                   `json:"numeroCNPJ"`
 	NumeroCPF                 *string                   `json:"numeroCPF"`
 	NumeroLicitação           *string                   `json:"numeroLicitacao"`
-	ObjetoCompra              *string                   `json:"objetoCompra"`
+	ObjetoCompra              *string                   `json:"objetoContrato"`
 	OrgaoEntidade             *OrgaoEntidade            `json:"orgaoEntidade"`
 	OrgaoSub                  *OrgaoEntidade            `json:"orgaoSub"`
 	OrgaoVinculado            *UnidadeOrgao             `json:"orgaoVinculado"`
@@ -81,18 +81,18 @@ type Contrato struct {
 
 type OrgaoInfo struct {
 	CNPJ        *string `json:"cnpj"`
-	RazaoSocial *string `json:"razao_social"`
+	RazaoSocial *string `json:"razaoSocial"`
 }
 
 type Periodo struct {
-	DataInicial *string `json:"data_inicial"`
-	DataFinal   *string `json:"data_final"`
+	DataInicial *string `json:"dataInicial"`
+	DataFinal   *string `json:"dataFinal"`
 }
 
 type Resumo struct {
-	TotalContratos      *int     `json:"total_contratos"`
-	TotalEmpresas       *int     `json:"total_empresas"`
-	ValorTotalContratos *float64 `json:"valor_total_contratos"`
+	TotalContratos      *int     `json:"totalContratos"`
+	TotalEmpresas       *int     `json:"totalEmpresas"`
+	ValorTotalContratos *float64 `json:"valorTotalContratos"`
 }
 
 type AnaliseResultado struct {

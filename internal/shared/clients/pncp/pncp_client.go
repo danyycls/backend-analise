@@ -161,9 +161,12 @@ func (p *PNCPClient) buscarPublicacaoResponse(ctx context.Context, params map[st
 	return nil, lastErr
 }
 
-func (p *PNCPClient) BuscarContratacoesPorMunicipio(ctx context.Context, codigoMunicipio string, dataInicial, dataFinal string, pagina, tamanho int) (*PublicacaoResponse, error) {
+func (p *PNCPClient) BuscarContratacoesPorMunicipio(ctx context.Context, codigoMunicipio string, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*PublicacaoResponse, error) {
+	if codigoModalidade == "" {
+		codigoModalidade = "8"
+	}
 	params := map[string]string{
-		"codigoModalidadeContratacao": "8",
+		"codigoModalidadeContratacao": codigoModalidade,
 		"codigoMunicipioIbge":         codigoMunicipio,
 		"dataInicial":                 dataInicial,
 		"dataFinal":                   dataFinal,
@@ -171,9 +174,12 @@ func (p *PNCPClient) BuscarContratacoesPorMunicipio(ctx context.Context, codigoM
 	return p.buscarPublicacaoResponse(ctx, params, pagina, tamanho)
 }
 
-func (p *PNCPClient) BuscarContratacoesPorUF(ctx context.Context, uf, dataInicial, dataFinal string, pagina, tamanho int) (*PublicacaoResponse, error) {
+func (p *PNCPClient) BuscarContratacoesPorUF(ctx context.Context, uf, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*PublicacaoResponse, error) {
+	if codigoModalidade == "" {
+		codigoModalidade = "8"
+	}
 	params := map[string]string{
-		"codigoModalidadeContratacao": "8",
+		"codigoModalidadeContratacao": codigoModalidade,
 		"uf":                          uf,
 		"dataInicial":                 dataInicial,
 		"dataFinal":                   dataFinal,

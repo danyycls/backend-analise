@@ -262,7 +262,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	rreoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRREOUseCase(baseFinanceiroUC)
 	recursosFederaisUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisUseCase(portalClient, redisCache)
 
-	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, portalClient, pncpClient, redisCache)
+	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, pncpClient)
 
 	siapeUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAPEUseCase(portalClient)
 	siafiUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAFIUseCase(portalClient)

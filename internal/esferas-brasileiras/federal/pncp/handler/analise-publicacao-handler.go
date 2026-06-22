@@ -60,10 +60,11 @@ func (h *AnalisePublicacaoHandler) AnalisePublicacao(c *gin.Context) {
 		valor = req.UF
 	}
 	params := map[string]interface{}{
-		"tipo":        req.Tipo,
-		"valor":       valor,
-		"dataInicial": req.DataInicial,
-		"dataFinal":   req.DataFinal,
+		"tipo":                        req.Tipo,
+		"valor":                       valor,
+		"dataInicial":                 req.DataInicial,
+		"dataFinal":                   req.DataFinal,
+		"codigoModalidadeContratacao": req.CodigoModalidadeContratacao,
 	}
 	raw, _ := json.Marshal(params)
 	chave := redis.ChaveCache("publicacao-analise", raw)
@@ -107,9 +108,9 @@ func (h *AnalisePublicacaoHandler) AnalisePublicacao(c *gin.Context) {
 		var paginasErro []int
 
 		if req.Tipo == "municipio" {
-			results, err = h.useCase.BuscarPorMunicipio(context.Background(), req.CodigoMunicipioIbge, req.DataInicial, req.DataFinal, &paginasErro)
+			results, err = h.useCase.BuscarPorMunicipio(context.Background(), req.CodigoMunicipioIbge, req.DataInicial, req.DataFinal, req.CodigoModalidadeContratacao, &paginasErro)
 		} else {
-			results, err = h.useCase.BuscarPorUF(context.Background(), req.UF, req.DataInicial, req.DataFinal, &paginasErro)
+			results, err = h.useCase.BuscarPorUF(context.Background(), req.UF, req.DataInicial, req.DataFinal, req.CodigoModalidadeContratacao, &paginasErro)
 		}
 
 		if err != nil {
@@ -172,6 +173,35 @@ func (h *AnalisePublicacaoHandler) AnalisePublicacao(c *gin.Context) {
 		"jobId":  jobID,
 		"status": "processing",
 		"total":  1,
+	})
+}
+
+func (h *AnalisePublicacaoHandler) BuscarResultadosBatch(c *gin.Context) {
+	jobID := c.Param("jobId")
+
+	h.jobsMu.Lock()
+	job, exists := h.jobs[jobID]
+	h.jobsMu.Unlock()
+
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"erro": "job nao encontrado"})
+		return
+	}
+
+	job.mu.RLock()
+	results := job.results
+	paginasErro := job.paginasErro
+	job.mu.RUnlock()
+
+	status := "processing"
+	if results != nil {
+		status = "completed"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":      status,
+		"results":     results,
+		"paginasErro": paginasErro,
 	})
 }
 

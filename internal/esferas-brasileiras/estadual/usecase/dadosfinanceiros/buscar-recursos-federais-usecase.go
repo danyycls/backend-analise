@@ -14,7 +14,8 @@ import (
 )
 
 type EsferaEstadualBuscarRecursosFederaisRequest struct {
-	UF string
+	UF        string
+	Exercicio int64
 }
 
 type EsferaEstadualBuscarRecursosFederaisResponse struct {
@@ -37,18 +38,21 @@ func NovoEsferaEstadualBuscarRecursosFederaisUseCase(
 }
 
 func (u *EsferaEstadualBuscarRecursosFederaisUseCase) Executar(ctx context.Context, req *EsferaEstadualBuscarRecursosFederaisRequest) (*EsferaEstadualBuscarRecursosFederaisResponse, error) {
-	resultado := u.buscarRecursosFederais(ctx, req.UF)
+	resultado := u.buscarRecursosFederais(ctx, req.UF, req.Exercicio)
 	return &EsferaEstadualBuscarRecursosFederaisResponse{Dados: resultado}, nil
 }
 
-func (u *EsferaEstadualBuscarRecursosFederaisUseCase) buscarRecursosFederais(ctx context.Context, uf string) []types.RecursoFederalRecebido {
+func (u *EsferaEstadualBuscarRecursosFederaisUseCase) buscarRecursosFederais(ctx context.Context, uf string, exercicio int64) []types.RecursoFederalRecebido {
 	log := logger.New("Estadual: UseCase: BuscarRecursosFederais")
-	anoAlvo := time.Now().Year() - 1
+	anoAlvo := exercicio
+	if anoAlvo <= 0 {
+		anoAlvo = int64(time.Now().Year() - 1)
+	}
 
 	filtro := portalClient.DespesaRecursosRecebidosQueryParams{
 		Pagina:       1,
-		MesAnoInicio: strconv.Itoa(anoAlvo) + "-01",
-		MesAnoFim:    strconv.Itoa(anoAlvo) + "-12",
+		MesAnoInicio: strconv.Itoa(int(anoAlvo)) + "-01",
+		MesAnoFim:    strconv.Itoa(int(anoAlvo)) + "-12",
 		UF:           uf,
 	}
 

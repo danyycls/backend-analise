@@ -36,7 +36,6 @@ func NovoConsultaCNPJOrgaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.
 
 func (u *ConsultaCNPJOrgaoPNCPUseCase) AnaliseMultiplos(ctx context.Context, req pncp.AnaliseOrgaoPNCPRequest, eventos chan<- pncp.EventoAnalise) []*pncp.AnaliseResultado {
 	log := logger.New("PNCP: UseCase: AnaliseMultiplos")
-	defer close(eventos)
 
 	total := len(req.CNPJs)
 	if total == 0 {

@@ -3,7 +3,9 @@ package dadosfinanceiros
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/danyele/podp/internal/shared/clients/ibge"
@@ -13,9 +15,14 @@ import (
 )
 
 type BaseFinanceiroUseCase struct {
-	siconfiCli *siconfiClient.SICONFIClient
-	ibgeCli    *ibge.IBGEClient
-	redisCache *redis.RedisCache
+	siconfiCli      *siconfiClient.SICONFIClient
+	ibgeCli         *ibge.IBGEClient
+	redisCache      *redis.RedisCache
+	apiIndisponivel atomic.Bool
+}
+
+func (b *BaseFinanceiroUseCase) SICONFIIndisponivel() bool {
+	return b.apiIndisponivel.Load()
 }
 
 func NovoBaseFinanceiroUseCase(
@@ -61,6 +68,9 @@ func (b *BaseFinanceiroUseCase) buscarRGF(ctx context.Context, params siconfiCli
 
 	itens, err := b.siconfiCli.BuscarRGF(ctx, params)
 	if err != nil {
+		if errors.Is(err, siconfiClient.ErrSICONFIIndisponivel) {
+			b.apiIndisponivel.Store(true)
+		}
 		return nil, err
 	}
 
@@ -85,6 +95,9 @@ func (b *BaseFinanceiroUseCase) buscarRREO(ctx context.Context, params siconfiCl
 
 	itens, err := b.siconfiCli.BuscarRREO(ctx, params)
 	if err != nil {
+		if errors.Is(err, siconfiClient.ErrSICONFIIndisponivel) {
+			b.apiIndisponivel.Store(true)
+		}
 		return nil, err
 	}
 

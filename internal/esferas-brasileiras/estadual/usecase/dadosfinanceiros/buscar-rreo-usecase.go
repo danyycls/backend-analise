@@ -10,7 +10,8 @@ import (
 )
 
 type EsferaEstadualBuscarRREORequest struct {
-	UF string
+	UF        string
+	Exercicio int64
 }
 
 type EsferaEstadualBuscarRREOResponse struct {
@@ -27,17 +28,19 @@ func NovoEsferaEstadualBuscarRREOUseCase(base *BaseFinanceiroUseCase) *EsferaEst
 }
 
 func (u *EsferaEstadualBuscarRREOUseCase) Executar(ctx context.Context, req *EsferaEstadualBuscarRREORequest) (*EsferaEstadualBuscarRREOResponse, error) {
-	gastos, receitas := u.buscarRREO(ctx, req.UF)
+	gastos, receitas := u.buscarRREO(ctx, req.UF, req.Exercicio)
 	return &EsferaEstadualBuscarRREOResponse{Gastos: gastos, Receitas: receitas}, nil
 }
 
-func (u *EsferaEstadualBuscarRREOUseCase) buscarRREO(ctx context.Context, uf string) ([]types.GastoPorFuncao, []types.ReceitaResumo) {
+func (u *EsferaEstadualBuscarRREOUseCase) buscarRREO(ctx context.Context, uf string, exercicio int64) ([]types.GastoPorFuncao, []types.ReceitaResumo) {
 	idEnte, err := u.estadoID(ctx, uf)
 	if err != nil || idEnte == 0 {
 		return nil, nil
 	}
 
-	exercicio := u.anoAlvo()
+	if exercicio <= 0 {
+		exercicio = u.anoAlvo()
+	}
 	var gastos []types.GastoPorFuncao
 	var receitas []types.ReceitaResumo
 

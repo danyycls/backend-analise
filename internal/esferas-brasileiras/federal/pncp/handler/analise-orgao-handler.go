@@ -37,6 +37,7 @@ type jobState struct {
 	eventChan chan pncp.EventoAnalise
 	results   []*pncp.AnaliseResultado
 	mu        sync.RWMutex
+	done      chan struct{}
 }
 
 func (h *AnaliseOrgaoPNCPHandler) AnaliseOrgaoPNCP(c *gin.Context) {
@@ -75,9 +76,10 @@ func (h *AnaliseOrgaoPNCPHandler) AnaliseOrgaoPNCP(c *gin.Context) {
 	eventChan := make(chan pncp.EventoAnalise, 200)
 
 	h.jobsMu.Lock()
-	js := &jobState{eventChan: eventChan}
+	js := &jobState{eventChan: eventChan, done: make(chan struct{})}
 	if cacheHit {
 		js.results = cached
+		close(js.done)
 	}
 	h.jobs[jobID] = js
 	h.jobsMu.Unlock()
@@ -108,25 +110,56 @@ func (h *AnaliseOrgaoPNCPHandler) AnaliseOrgaoPNCP(c *gin.Context) {
 
 		results := h.useCase.AnaliseMultiplos(ctx, req, eventChan)
 
-		if results != nil {
-			if err := h.redis.Set(ctx, chave, results); err != nil {
-				log.Warn("cache indisponivel", "erro", err)
-			}
-		}
-
 		h.jobsMu.Lock()
 		if job, ok := h.jobs[jobID]; ok {
 			job.mu.Lock()
 			job.results = results
 			job.mu.Unlock()
+			close(job.done)
 		}
 		h.jobsMu.Unlock()
+		close(eventChan)
+
+		if results != nil {
+			if err := h.redis.Set(ctx, chave, results); err != nil {
+				log.Warn("cache indisponivel", "erro", err)
+			}
+		}
 	}()
 
 	c.JSON(http.StatusAccepted, gin.H{
 		"jobId":  jobID,
 		"status": "processing",
 		"total":  len(req.CNPJs),
+	})
+}
+
+func (h *AnaliseOrgaoPNCPHandler) BuscarResultadosBatch(c *gin.Context) {
+	jobID := c.Param("jobId")
+
+	h.jobsMu.Lock()
+	job, exists := h.jobs[jobID]
+	h.jobsMu.Unlock()
+
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"erro": "job nao encontrado"})
+		return
+	}
+
+	<-job.done
+
+	job.mu.RLock()
+	results := job.results
+	job.mu.RUnlock()
+
+	status := "processing"
+	if results != nil {
+		status = "completed"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  status,
+		"results": results,
 	})
 }
 

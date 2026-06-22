@@ -26,21 +26,22 @@ func NovoConsultaPublicacaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj
 	}
 }
 
-func (u *ConsultaPublicacaoPNCPUseCase) BuscarPorUF(ctx context.Context, uf, dataInicial, dataFinal string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
-	return u.buscar(ctx, "uf", uf, dataInicial, dataFinal, paginasErro)
+func (u *ConsultaPublicacaoPNCPUseCase) BuscarPorUF(ctx context.Context, uf, dataInicial, dataFinal, codigoModalidade string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
+	return u.buscar(ctx, "uf", uf, dataInicial, dataFinal, codigoModalidade, paginasErro)
 }
 
-func (u *ConsultaPublicacaoPNCPUseCase) BuscarPorMunicipio(ctx context.Context, codigoMunicipio, dataInicial, dataFinal string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
-	return u.buscar(ctx, "municipio", codigoMunicipio, dataInicial, dataFinal, paginasErro)
+func (u *ConsultaPublicacaoPNCPUseCase) BuscarPorMunicipio(ctx context.Context, codigoMunicipio, dataInicial, dataFinal, codigoModalidade string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
+	return u.buscar(ctx, "municipio", codigoMunicipio, dataInicial, dataFinal, codigoModalidade, paginasErro)
 }
 
-func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor, dataInicial, dataFinal string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
+func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor, dataInicial, dataFinal, codigoModalidade string, paginasErro *[]int) ([]*pncp.AnaliseResultado, error) {
 	log := logger.New("PNCP: UseCase: buscar")
 	cacheParams := map[string]interface{}{
-		"tipo":        tipo,
-		"valor":       valor,
-		"dataInicial": dataInicial,
-		"dataFinal":   dataFinal,
+		"tipo":                        tipo,
+		"valor":                       valor,
+		"dataInicial":                 dataInicial,
+		"dataFinal":                   dataFinal,
+		"codigoModalidadeContratacao": codigoModalidade,
 	}
 	raw, _ := json.Marshal(cacheParams)
 	cacheKey := redis.ChaveCache("pncp-publicacao-buscar", raw)
@@ -53,7 +54,7 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 		return cached, nil
 	}
 
-	items, paginas := u.buscarTodasPaginas(ctx, tipo, valor, dataInicial, dataFinal)
+	items, paginas := u.buscarTodasPaginas(ctx, tipo, valor, dataInicial, dataFinal, codigoModalidade)
 	if paginasErro != nil {
 		*paginasErro = paginas
 	}
@@ -118,7 +119,7 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 	return resultados, nil
 }
 
-func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, tipo, valor, dataInicial, dataFinal string) ([]pncp.Contrato, []int) {
+func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, tipo, valor, dataInicial, dataFinal, codigoModalidade string) ([]pncp.Contrato, []int) {
 	log := logger.New("PNCP: UseCase: buscarTodasPaginas")
 	pagina := 1
 	tamanho := 50
@@ -129,12 +130,13 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, 
 
 	for pagina <= totalPaginas {
 		cacheParams := map[string]interface{}{
-			"tipo":        tipo,
-			"valor":       valor,
-			"dataInicial": dataInicial,
-			"dataFinal":   dataFinal,
-			"pagina":      pagina,
-			"tamanho":     tamanho,
+			"tipo":                        tipo,
+			"valor":                       valor,
+			"dataInicial":                 dataInicial,
+			"dataFinal":                   dataFinal,
+			"codigoModalidadeContratacao": codigoModalidade,
+			"pagina":                      pagina,
+			"tamanho":                     tamanho,
 		}
 		raw, _ := json.Marshal(cacheParams)
 		cacheKey := redis.ChaveCache("pncp-publicacao-pagina", raw)
@@ -156,9 +158,9 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, 
 			totalPaginas = resp.TotalPaginas
 		} else {
 			if tipo == "uf" {
-				resp, err = u.pncpClient.BuscarContratacoesPorUF(ctx, valor, dataInicial, dataFinal, pagina, tamanho)
+				resp, err = u.pncpClient.BuscarContratacoesPorUF(ctx, valor, dataInicial, dataFinal, codigoModalidade, pagina, tamanho)
 			} else {
-				resp, err = u.pncpClient.BuscarContratacoesPorMunicipio(ctx, valor, dataInicial, dataFinal, pagina, tamanho)
+				resp, err = u.pncpClient.BuscarContratacoesPorMunicipio(ctx, valor, dataInicial, dataFinal, codigoModalidade, pagina, tamanho)
 			}
 
 			if err != nil {

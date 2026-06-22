@@ -8,9 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/danyele/podp/internal/esferas-brasileiras/municipal/usecase"
-	"github.com/danyele/podp/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/logger"
 	ws "github.com/danyele/podp/internal/shared/websocket"
 )
+
+const msgSICONFIIndisponivel = "API SICONFI (Tesouro Nacional) temporariamente indisponível. Os dados financeiros do município não puderam ser carregados. Tente novamente mais tarde."
 
 type EsferaMunicipalBuscarDetalhesWSHandler struct {
 	useCase *usecase.EsferaMunicipalBuscarDetalhesUseCase
@@ -36,9 +38,6 @@ func (h *EsferaMunicipalBuscarDetalhesWSHandler) BuscarDetalhesMunicipioWS(c *gi
 	exercicioStr := c.DefaultQuery("exercicio", "0")
 	exercicio, _ := strconv.ParseInt(exercicioStr, 10, 64)
 
-	nome := c.Query("nome")
-	uf := c.Query("uf")
-
 	conn, err := ws.Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
@@ -51,51 +50,130 @@ func (h *EsferaMunicipalBuscarDetalhesWSHandler) BuscarDetalhesMunicipioWS(c *gi
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		despesa := h.useCase.BuscarDespesaPessoal(ctx, codigoIBGE, exercicio)
-		ch <- wsMsgMuni{Type: "despesa_pessoal", Data: despesa}
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarDividaConsolidada", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarDividaConsolidada(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "divida_consolidada", Data: d}
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		gastos, receitas := h.useCase.BuscarRREO(ctx, codigoIBGE, exercicio)
-		ch <- wsMsgMuni{Type: "gastos_por_funcao", Data: map[string]interface{}{"dados": gastos}}
-		ch <- wsMsgMuni{Type: "receitas", Data: map[string]interface{}{"dados": receitas}}
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarDisponibilidadeCaixa", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarDisponibilidadeCaixa(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "disponibilidade_caixa", Data: d}
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		recursos := h.useCase.BuscarRecursosFederais(ctx, codigoIBGE)
-		ch <- wsMsgMuni{Type: "recursos_federais", Data: map[string]interface{}{"dados": recursos}}
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarRestosAPagar", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarRestosAPagar(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "restos_a_pagar", Data: d}
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		contratos := h.useCase.BuscarContratos(ctx, codigoIBGE)
-		ch <- wsMsgMuni{Type: "contratos", Data: map[string]interface{}{"dados": contratos}}
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarGastoSaude", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarGastoSaude(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "gasto_saude", Data: d}
 	}()
 
 	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		servidores := h.useCase.BuscarServidores(ctx, codigoIBGE)
-		ch <- wsMsgMuni{Type: "servidores", Data: map[string]interface{}{"dados": servidores}}
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarGastoEducacao", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarGastoEducacao(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "gasto_educacao", Data: d}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarFundeb", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarFundeb(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "fundeb", Data: d}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarBalancoPatrimonial", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarBalancoPatrimonial(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "balanco_patrimonial", Data: d}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarDespesasPorGrupo", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarDespesasPorGrupo(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "despesas_por_grupo", Data: map[string]interface{}{"dados": d}}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarTransferencias", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarTransferencias(ctx, codigoIBGE, exercicio)
+		ch <- wsMsgMuni{Type: "transferencias", Data: map[string]interface{}{"dados": d}}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.New("Municipal: WS Handler").Error("panic BuscarContratos", "recover", r)
+			}
+			wg.Done()
+		}()
+		d := h.useCase.BuscarContratos(ctx, codigoIBGE, int(exercicio))
+		ch <- wsMsgMuni{Type: "contratos", Data: map[string]interface{}{"dados": d}}
 	}()
 
 	go func() {
 		wg.Wait()
-		resumo := &types.DetalhesMunicipioResponse{
-			CodigoIBGE: codigoIBGE,
-			Nome:       nome,
-			UF:         uf,
+		if h.useCase.SICONFIIndisponivel() {
+			ch <- wsMsgMuni{Type: "erro", Data: map[string]string{"erro": msgSICONFIIndisponivel}}
 		}
-		if exercicio > 0 {
-			resumo.Exercicio = int(exercicio)
-		}
-		ch <- wsMsgMuni{Type: "concluido", Data: resumo}
+		ch <- wsMsgMuni{Type: "concluido", Data: nil}
 		close(ch)
 	}()
 
@@ -105,7 +183,9 @@ func (h *EsferaMunicipalBuscarDetalhesWSHandler) BuscarDetalhesMunicipioWS(c *gi
 			if !ok {
 				return
 			}
-			ws.WriteJSON(conn, msg)
+			if err := ws.WriteJSON(conn, msg); err != nil {
+				return
+			}
 		case <-ctx.Done():
 			return
 		}

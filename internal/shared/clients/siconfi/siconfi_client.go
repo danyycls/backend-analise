@@ -2,6 +2,8 @@ package siconfi
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +13,14 @@ import (
 
 	"github.com/danyele/podp/internal/shared/logger"
 )
+
+var ErrSICONFIIndisponivel = errors.New("API SICONFI temporariamente indisponivel")
+
+type siconfiErrorResp struct {
+	Code    string `json:"code"`
+	Title   string `json:"title"`
+	Message string `json:"message"`
+}
 
 // SICONFIClient é o cliente HTTP para a API de dados abertos do SICONFI
 // (Sistema de Informações Contábeis e Fiscais do Setor Público Brasileiro)
@@ -123,6 +133,10 @@ func (c *SICONFIClient) doGet(ctx context.Context, path string, query url.Values
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		var sErr siconfiErrorResp
+		if err := json.Unmarshal(body, &sErr); err == nil && sErr.Code == "AccountIsLocked" {
+			return nil, fmt.Errorf("siconfi: API temporariamente indisponivel (conta bloqueada): %w", ErrSICONFIIndisponivel)
+		}
 		return nil, fmt.Errorf("siconfi: status %d: %s", resp.StatusCode, string(body))
 	}
 

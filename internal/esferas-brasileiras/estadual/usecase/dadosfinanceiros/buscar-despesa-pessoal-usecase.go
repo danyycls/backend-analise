@@ -11,7 +11,8 @@ import (
 )
 
 type EsferaEstadualBuscarDespesaPessoalRequest struct {
-	UF string
+	UF        string
+	Exercicio int64
 }
 
 type EsferaEstadualBuscarDespesaPessoalResponse struct {
@@ -27,11 +28,11 @@ func NovoEsferaEstadualBuscarDespesaPessoalUseCase(base *BaseFinanceiroUseCase) 
 }
 
 func (u *EsferaEstadualBuscarDespesaPessoalUseCase) Executar(ctx context.Context, req *EsferaEstadualBuscarDespesaPessoalRequest) (*EsferaEstadualBuscarDespesaPessoalResponse, error) {
-	resultado := u.buscarDespesaPessoal(ctx, req.UF)
+	resultado := u.buscarDespesaPessoal(ctx, req.UF, req.Exercicio)
 	return &EsferaEstadualBuscarDespesaPessoalResponse{Dados: resultado}, nil
 }
 
-func (u *EsferaEstadualBuscarDespesaPessoalUseCase) buscarDespesaPessoal(ctx context.Context, uf string) *types.DespesaPessoalResumo {
+func (u *EsferaEstadualBuscarDespesaPessoalUseCase) buscarDespesaPessoal(ctx context.Context, uf string, exercicio int64) *types.DespesaPessoalResumo {
 	log := logger.New("Estadual: UseCase: BuscarDespesaPessoal")
 	idEnte, err := u.estadoID(ctx, uf)
 	if err != nil || idEnte == 0 {
@@ -39,7 +40,7 @@ func (u *EsferaEstadualBuscarDespesaPessoalUseCase) buscarDespesaPessoal(ctx con
 		return nil
 	}
 
-	for _, t := range u.montarTentativas() {
+	for _, t := range u.montarTentativas(exercicio) {
 		params := siconfiClient.RGFParams{
 			AnExercicio:         t.ano,
 			InPeriodicidade:     t.periodicidade,
@@ -71,8 +72,11 @@ type tentativaRGF struct {
 	periodo       int
 }
 
-func (u *EsferaEstadualBuscarDespesaPessoalUseCase) montarTentativas() []tentativaRGF {
-	alvo := u.anoAlvo()
+func (u *EsferaEstadualBuscarDespesaPessoalUseCase) montarTentativas(exercicio int64) []tentativaRGF {
+	alvo := exercicio
+	if alvo <= 0 {
+		alvo = u.anoAlvo()
+	}
 	return []tentativaRGF{
 		{alvo, "Q", 3},
 		{alvo, "S", 2},

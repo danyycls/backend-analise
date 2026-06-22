@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/danyele/podp/internal/shared/types"
 	ws "github.com/danyele/podp/internal/shared/websocket"
 )
+
+const msgSICONFIIndisponivelEstado = "API SICONFI (Tesouro Nacional) temporariamente indisponível. Os dados financeiros do estado não puderam ser carregados. Tente novamente mais tarde."
 
 type EsferaEstadualBuscarFinanceiroWSHandler struct {
 	despesaPessoalUC   *dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalUseCase
@@ -45,6 +48,9 @@ func (h *EsferaEstadualBuscarFinanceiroWSHandler) BuscarFinanceiroWS(c *gin.Cont
 		return
 	}
 
+	exercicioStr := c.DefaultQuery("exercicio", "0")
+	exercicio, _ := strconv.ParseInt(exercicioStr, 10, 64)
+
 	conn, err := ws.Upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
@@ -58,21 +64,21 @@ func (h *EsferaEstadualBuscarFinanceiroWSHandler) BuscarFinanceiroWS(c *gin.Cont
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		resp, _ := h.despesaPessoalUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalRequest{UF: uf})
+		resp, _ := h.despesaPessoalUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalRequest{UF: uf, Exercicio: exercicio})
 		ch <- wsMsg{Type: "despesa_pessoal", Data: resp.Dados}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		resp, _ := h.despesaCategoriaUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaRequest{UF: uf})
+		resp, _ := h.despesaCategoriaUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaRequest{UF: uf, Exercicio: exercicio})
 		ch <- wsMsg{Type: "despesa_categoria", Data: map[string]interface{}{"dados": resp.Dados}}
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		resp, _ := h.rreoUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarRREORequest{UF: uf})
+		resp, _ := h.rreoUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarRREORequest{UF: uf, Exercicio: exercicio})
 		ch <- wsMsg{Type: "gastos_por_funcao", Data: map[string]interface{}{"dados": resp.Gastos}}
 		ch <- wsMsg{Type: "receitas", Data: map[string]interface{}{"dados": resp.Receitas}}
 	}()
@@ -80,12 +86,15 @@ func (h *EsferaEstadualBuscarFinanceiroWSHandler) BuscarFinanceiroWS(c *gin.Cont
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		resp, _ := h.recursosFederaisUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarRecursosFederaisRequest{UF: uf})
+		resp, _ := h.recursosFederaisUC.Executar(ctx, &dadosfinanceiros.EsferaEstadualBuscarRecursosFederaisRequest{UF: uf, Exercicio: exercicio})
 		ch <- wsMsg{Type: "recursos_federais", Data: map[string]interface{}{"dados": resp.Dados}}
 	}()
 
 	go func() {
 		wg.Wait()
+		if h.despesaPessoalUC.SICONFIIndisponivel() {
+			ch <- wsMsg{Type: "erro", Data: map[string]string{"erro": msgSICONFIIndisponivelEstado}}
+		}
 		resumo := &types.DadosEstadoFinanceiroResumo{
 			UF: uf,
 		}

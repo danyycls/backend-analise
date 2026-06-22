@@ -61,16 +61,81 @@ type DeputadoUF struct {
 }
 
 type DetalhesMunicipioResponse struct {
-	CodigoIBGE       int                      `json:"codigo_ibge"`
-	Nome             string                   `json:"nome"`
-	UF               string                   `json:"uf"`
-	Exercicio        int                      `json:"exercicio"`
-	DespesaPessoal   *DespesaPessoalResumo    `json:"despesa_pessoal,omitempty"`
-	GastosPorFuncao  []GastoPorFuncao         `json:"gastos_por_funcao,omitempty"`
-	Receitas         []ReceitaResumo          `json:"receitas,omitempty"`
-	RecursosFederais []RecursoFederalRecebido `json:"recursos_federais,omitempty"`
-	Contratos        []ContratoPNCP           `json:"contratos,omitempty"`
-	Servidores       []ServidorMunicipio      `json:"servidores,omitempty"`
+	CodigoIBGE           int                   `json:"codigo_ibge"`
+	Nome                 string                `json:"nome"`
+	UF                   string                `json:"uf"`
+	Exercicio            int                   `json:"exercicio"`
+	Contratos            interface{}           `json:"contratos,omitempty"`
+	DividaConsolidada    *DividaConsolidada    `json:"divida_consolidada,omitempty"`
+	DisponibilidadeCaixa *DisponibilidadeCaixa `json:"disponibilidade_caixa,omitempty"`
+	RestosAPagar         *RestosAPagar         `json:"restos_a_pagar,omitempty"`
+	GastoSaude           *GastoSaude           `json:"gasto_saude,omitempty"`
+	GastoEducacao        *GastoEducacao        `json:"gasto_educacao,omitempty"`
+	Fundeb               *FundebResumo         `json:"fundeb,omitempty"`
+	BalancoPatrimonial   *BalancoPatrimonial   `json:"balanco_patrimonial,omitempty"`
+	DespesasPorGrupo     []DespesaPorGrupoItem `json:"despesas_por_grupo,omitempty"`
+	Transferencias       []TransferenciaItem   `json:"transferencias,omitempty"`
+}
+
+type DividaConsolidada struct {
+	ValorDCL      float64 `json:"valor_dcl"`
+	PercentualRCL float64 `json:"percentual_rcl"`
+	LimiteLegal   float64 `json:"limite_legal"`
+	Periodo       string  `json:"periodo"`
+}
+
+type DisponibilidadeCaixa struct {
+	Vinculada    float64 `json:"vinculada"`
+	NaoVinculada float64 `json:"nao_vinculada"`
+	Periodo      string  `json:"periodo"`
+}
+
+type RestosAPagar struct {
+	Inscritos  float64 `json:"inscritos"`
+	Pagos      float64 `json:"pagos"`
+	Cancelados float64 `json:"cancelados"`
+	Periodo    string  `json:"periodo"`
+}
+
+type GastoSaude struct {
+	ValorTotal           float64 `json:"valor_total"`
+	PercentualAplicado   float64 `json:"percentual_aplicado"`
+	LimiteConstitucional float64 `json:"limite_constitutional"`
+	Periodo              string  `json:"periodo"`
+}
+
+type GastoEducacao struct {
+	ValorTotal           float64 `json:"valor_total"`
+	PercentualAplicado   float64 `json:"percentual_aplicado"`
+	LimiteConstitucional float64 `json:"limite_constitutional"`
+	Periodo              string  `json:"periodo"`
+}
+
+type FundebResumo struct {
+	ReceitaTotal float64 `json:"receita_total"`
+	DespesaTotal float64 `json:"despesa_total"`
+	Periodo      string  `json:"periodo"`
+}
+
+type BalancoPatrimonial struct {
+	AtivoCirculante      float64 `json:"ativo_circulante"`
+	AtivoNaoCirculante   float64 `json:"ativo_nao_circulante"`
+	PassivoCirculante    float64 `json:"passivo_circulante"`
+	PassivoNaoCirculante float64 `json:"passivo_nao_circulante"`
+	PatrimonioLiquido    float64 `json:"patrimonio_liquido"`
+	Periodo              string  `json:"periodo"`
+}
+
+type DespesaPorGrupoItem struct {
+	Grupo     string  `json:"grupo"`
+	Empenhado float64 `json:"empenhado"`
+	Liquidado float64 `json:"liquidado"`
+	Pago      float64 `json:"pago"`
+}
+
+type TransferenciaItem struct {
+	Orgao string  `json:"orgao"`
+	Valor float64 `json:"valor"`
 }
 
 type ProgressoBusca struct {

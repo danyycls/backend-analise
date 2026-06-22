@@ -15,6 +15,7 @@ func NovoRoteador(app *App) *gin.Engine {
 	if app.AnaliseOrgaoPNCPHandler != nil {
 		roteador.POST("/orgao/analise", app.AnaliseOrgaoPNCPHandler.AnaliseOrgaoPNCP)
 		roteador.GET("/orgao/analise/stream/:jobId", app.WSOrgaoStreamHandler.WSStream)
+		roteador.GET("/orgao/analise/batch/:jobId", app.AnaliseOrgaoPNCPHandler.BuscarResultadosBatch)
 	}
 
 	if app.AnalisarLigacaoPoliticaHandler != nil {
@@ -32,6 +33,7 @@ func NovoRoteador(app *App) *gin.Engine {
 	if app.AnalisePublicacaoHandler != nil {
 		roteador.POST("/publicacao/analise", app.AnalisePublicacaoHandler.AnalisePublicacao)
 		roteador.GET("/publicacao/analise/stream/:jobId", app.WSPublicacaoStreamHandler.WSStream)
+		roteador.GET("/publicacao/analise/batch/:jobId", app.AnalisePublicacaoHandler.BuscarResultadosBatch)
 		roteador.GET("/ibge/municipios/:uf", app.ListarMunicipiosHandler.ListarMunicipios)
 	}
 
