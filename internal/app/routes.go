@@ -69,6 +69,73 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/deputados/:id/orgaos", app.BuscarOrgaoAssociadoDeputadoHandler.BuscarOrgaoAssociadoDeputado)
 	}
 
+	if app.DepListarPartidosHandler != nil {
+		roteador.GET("/deputados/partidos", app.DepListarPartidosHandler.Listar)
+	}
+	if app.DepBuscarPartidoHandler != nil {
+		roteador.GET("/deputados/partidos/:id", app.DepBuscarPartidoHandler.Buscar)
+		roteador.GET("/deputados/partidos/:id/membros", app.DepListarMembrosPartidoHandler.Listar)
+	}
+	if app.DepListarProposicoesHandler != nil {
+		roteador.GET("/deputados/proposicoes", app.DepListarProposicoesHandler.Listar)
+	}
+	if app.DepBuscarProposicaoHandler != nil {
+		roteador.GET("/deputados/proposicoes/:id", app.DepBuscarProposicaoHandler.Buscar)
+		roteador.GET("/deputados/proposicoes/:id/tramitacoes", app.DepListarTramitacoesHandler.Listar)
+		roteador.GET("/deputados/proposicoes/:id/autores", app.DepListarAutoresHandler.Listar)
+		roteador.GET("/deputados/proposicoes/:id/temas", app.DepListarTemasHandler.Listar)
+		roteador.GET("/deputados/proposicoes/:id/relacionadas", app.DepListarRelacionadasHandler.Listar)
+	}
+	if app.DepListarEventosHandler != nil {
+		roteador.GET("/deputados/eventos", app.DepListarEventosHandler.Listar)
+	}
+	if app.DepBuscarEventoHandler != nil {
+		roteador.GET("/deputados/eventos/:id", app.DepBuscarEventoHandler.Buscar)
+	}
+	if app.DepListarOrgaosHandler != nil {
+		roteador.GET("/deputados/orgaos", app.DepListarOrgaosHandler.Listar)
+	}
+	if app.DepBuscarOrgaoHandler != nil {
+		roteador.GET("/deputados/orgaos/:id", app.DepBuscarOrgaoHandler.Buscar)
+		roteador.GET("/deputados/orgaos/:id/membros", app.DepListarMembrosOrgaoHandler.Listar)
+	}
+	if app.DepListarBlocosHandler != nil {
+		roteador.GET("/deputados/blocos", app.DepListarBlocosHandler.Listar)
+	}
+	if app.DepBuscarBlocoHandler != nil {
+		roteador.GET("/deputados/blocos/:id", app.DepBuscarBlocoHandler.Buscar)
+		roteador.GET("/deputados/blocos/:id/partidos", app.DepListarPartidosDoBlocoHandler.Listar)
+	}
+	if app.DepListarFrentesHandler != nil {
+		roteador.GET("/deputados/frentes", app.DepListarFrentesHandler.Listar)
+	}
+	if app.DepBuscarFrenteHandler != nil {
+		roteador.GET("/deputados/frentes/:id", app.DepBuscarFrenteHandler.Buscar)
+		roteador.GET("/deputados/frentes/:id/membros", app.DepListarMembrosFrenteHandler.Listar)
+	}
+	if app.DepListarGruposHandler != nil {
+		roteador.GET("/deputados/grupos", app.DepListarGruposHandler.Listar)
+	}
+	if app.DepBuscarGrupoHandler != nil {
+		roteador.GET("/deputados/grupos/:id", app.DepBuscarGrupoHandler.Buscar)
+	}
+	if app.DepListarLegislaturasHandler != nil {
+		roteador.GET("/deputados/legislaturas", app.DepListarLegislaturasHandler.Listar)
+	}
+	if app.DepBuscarLegislaturaHandler != nil {
+		roteador.GET("/deputados/legislaturas/:id", app.DepBuscarLegislaturaHandler.Buscar)
+	}
+	if app.DepListarVotacoesHandler != nil {
+		roteador.GET("/deputados/votacoes", app.DepListarVotacoesHandler.Listar)
+	}
+	if app.DepBuscarVotacaoHandler != nil {
+		roteador.GET("/deputados/votacoes/:id", app.DepBuscarVotacaoHandler.Buscar)
+		roteador.GET("/deputados/votacoes/:id/votos", app.DepListarVotosHandler.Listar)
+	}
+	if app.BaixarDocumentoEmendaHandler != nil {
+		roteador.GET("/senado/emendas/:id/documento", app.BaixarDocumentoEmendaHandler.Baixar)
+	}
+
 	if app.ListarSenadoresHandler != nil {
 		roteador.GET("/senado/senadores", app.ListarSenadoresHandler.Listar)
 	}

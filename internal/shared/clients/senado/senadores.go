@@ -3,6 +3,8 @@ package senado
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 )
 
 func (c *SenadoClient) ListarSenadores(ctx context.Context) ([]ParlamentarResumo, error) {
@@ -47,4 +49,27 @@ func (c *SenadoClient) ListarMandatos(ctx context.Context, codigo string) ([]Man
 		return nil, fmt.Errorf("listar mandatos: %w", err)
 	}
 	return resultado.MandatoParlamentar.Parlamentar.Mandatos.Mandato, nil
+}
+
+func (c *SenadoClient) BaixarDocumentoEmenda(ctx context.Context, idDocumento int) ([]byte, string, error) {
+	docURL := fmt.Sprintf("https://legis.senado.leg.br/sdleg-getter/documento?dm=%d", idDocumento)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, docURL, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("baixar documento: erro requisicao: %w", err)
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("baixar documento: erro execucao: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, "", fmt.Errorf("baixar documento: status %d: %s", resp.StatusCode, string(body))
+	}
+	contentType := resp.Header.Get("Content-Type")
+	dados, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("baixar documento: erro leitura: %w", err)
+	}
+	return dados, contentType, nil
 }

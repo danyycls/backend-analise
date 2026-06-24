@@ -102,6 +102,36 @@ type App struct {
 	BuscarDespesasDeputadoHandler       *handlerDeputados.EsferaFederalBuscarDespesasDeputadoHandler
 	BuscarOrgaoAssociadoDeputadoHandler *handlerDeputados.EsferaFederalBuscarOrgaoAssociadoDeputadoHandler
 
+	DepListarPartidosHandler        *handlerDeputados.EsferaFederalListarPartidosHandler
+	DepBuscarPartidoHandler         *handlerDeputados.EsferaFederalBuscarPartidoHandler
+	DepListarMembrosPartidoHandler  *handlerDeputados.EsferaFederalListarMembrosPartidoHandler
+	DepListarProposicoesHandler     *handlerDeputados.ListarProposicoesHandler
+	DepBuscarProposicaoHandler      *handlerDeputados.BuscarProposicaoHandler
+	DepListarTramitacoesHandler     *handlerDeputados.ListarTramitacoesHandler
+	DepListarAutoresHandler         *handlerDeputados.ListarAutoresHandler
+	DepListarTemasHandler           *handlerDeputados.ListarTemasHandler
+	DepListarRelacionadasHandler    *handlerDeputados.ListarRelacionadasHandler
+	DepListarEventosHandler         *handlerDeputados.EsferaFederalListarEventosHandler
+	DepBuscarEventoHandler          *handlerDeputados.EsferaFederalBuscarEventoHandler
+	DepListarOrgaosHandler          *handlerDeputados.EsferaFederalListarOrgaosHandler
+	DepBuscarOrgaoHandler           *handlerDeputados.EsferaFederalBuscarOrgaoHandler
+	DepListarMembrosOrgaoHandler    *handlerDeputados.EsferaFederalListarMembrosOrgaoHandler
+	DepListarBlocosHandler          *handlerDeputados.EsferaFederalListarBlocosHandler
+	DepBuscarBlocoHandler           *handlerDeputados.EsferaFederalBuscarBlocoHandler
+	DepListarPartidosDoBlocoHandler *handlerDeputados.EsferaFederalListarPartidosDoBlocoHandler
+	DepListarFrentesHandler         *handlerDeputados.EsferaFederalListarFrentesHandler
+	DepBuscarFrenteHandler          *handlerDeputados.EsferaFederalBuscarFrenteHandler
+	DepListarMembrosFrenteHandler   *handlerDeputados.EsferaFederalListarMembrosFrenteHandler
+	DepListarGruposHandler          *handlerDeputados.EsferaFederalListarGruposHandler
+	DepBuscarGrupoHandler           *handlerDeputados.EsferaFederalBuscarGrupoHandler
+	DepListarLegislaturasHandler    *handlerDeputados.EsferaFederalListarLegislaturasHandler
+	DepBuscarLegislaturaHandler     *handlerDeputados.EsferaFederalBuscarLegislaturaHandler
+	DepListarVotacoesHandler        *handlerDeputados.EsferaFederalListarVotacoesHandler
+	DepBuscarVotacaoHandler         *handlerDeputados.EsferaFederalBuscarVotacaoHandler
+	DepListarVotosHandler           *handlerDeputados.EsferaFederalListarVotosHandler
+
+	BaixarDocumentoEmendaHandler *handlerSenadores.BaixarDocumentoEmendaHandler
+
 	ListarSenadoresHandler                   *handlerSenadores.ListarSenadoresHandler
 	BuscarSenadorHandler                     *handlerSenadores.BuscarSenadorHandler
 	ListarCargosSenadorHandler               *handlerSenadores.ListarCargosHandler
@@ -225,6 +255,36 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	depDespesasUC := usecaseDeputados.NovoEsferaFederalBuscarDespesasDeputadoUseCase(deputadosClient)
 	depOrgaoUC := usecaseDeputados.NovoEsferaFederalBuscarOrgaoAssociadoDeputadoUseCase(deputadosClient)
 
+	listarPartidosUC := usecaseDeputados.NovoEsferaFederalListarPartidosUseCase(deputadosClient)
+	buscarPartidoUC := usecaseDeputados.NovoEsferaFederalBuscarPartidoUseCase(deputadosClient)
+	listarMembrosPartidoUC := usecaseDeputados.NovoEsferaFederalListarMembrosPartidoUseCase(deputadosClient)
+	listarProposicoesUC := usecaseDeputados.NovoListarProposicoesUseCase(deputadosClient)
+	buscarProposicaoUC := usecaseDeputados.NovoBuscarProposicaoUseCase(deputadosClient)
+	listarTramitacoesUC := usecaseDeputados.NovoListarTramitacoesUseCase(deputadosClient)
+	listarAutoresUC := usecaseDeputados.NovoListarAutoresUseCase(deputadosClient)
+	listarTemasUC := usecaseDeputados.NovoListarTemasUseCase(deputadosClient)
+	listarRelacionadasUC := usecaseDeputados.NovoListarRelacionadasUseCase(deputadosClient)
+	listarEventosUC := usecaseDeputados.NovoEsferaFederalListarEventosUseCase(deputadosClient)
+	buscarEventoUC := usecaseDeputados.NovoEsferaFederalBuscarEventoUseCase(deputadosClient)
+	listarOrgaosUC := usecaseDeputados.NovoEsferaFederalListarOrgaosUseCase(deputadosClient)
+	buscarOrgaoUC := usecaseDeputados.NovoEsferaFederalBuscarOrgaoUseCase(deputadosClient)
+	listarMembrosOrgaoUC := usecaseDeputados.NovoEsferaFederalListarMembrosOrgaoUseCase(deputadosClient)
+	listarBlocosUC := usecaseDeputados.NovoEsferaFederalListarBlocosUseCase(deputadosClient)
+	buscarBlocoUC := usecaseDeputados.NovoEsferaFederalBuscarBlocoUseCase(deputadosClient)
+	listarPartidosDoBlocoUC := usecaseDeputados.NovoEsferaFederalListarPartidosDoBlocoUseCase(deputadosClient)
+	listarFrentesUC := usecaseDeputados.NovoEsferaFederalListarFrentesUseCase(deputadosClient)
+	buscarFrenteUC := usecaseDeputados.NovoEsferaFederalBuscarFrenteUseCase(deputadosClient)
+	listarMembrosFrenteUC := usecaseDeputados.NovoEsferaFederalListarMembrosFrenteUseCase(deputadosClient)
+	listarGruposUC := usecaseDeputados.NovoEsferaFederalListarGruposUseCase(deputadosClient)
+	buscarGrupoUC := usecaseDeputados.NovoEsferaFederalBuscarGrupoUseCase(deputadosClient)
+	listarLegislaturasUC := usecaseDeputados.NovoEsferaFederalListarLegislaturasUseCase(deputadosClient)
+	buscarLegislaturaUC := usecaseDeputados.NovoEsferaFederalBuscarLegislaturaUseCase(deputadosClient)
+	depListarVotacoesUC := usecaseDeputados.NovoEsferaFederalListarVotacoesUseCase(deputadosClient)
+	buscarVotacaoUC := usecaseDeputados.NovoEsferaFederalBuscarVotacaoUseCase(deputadosClient)
+	listarVotosUC := usecaseDeputados.NovoEsferaFederalListarVotosUseCase(deputadosClient)
+
+	baixarDocumentoEmendaUC := usecaseSenadores.NovoBaixarDocumentoEmendaUseCase(senadoClient)
+
 	listarSenadoresUC := usecaseSenadores.NovoListarSenadoresUseCase(senadoClient)
 	buscarSenadorUC := usecaseSenadores.NovoBuscarSenadorUseCase(senadoClient)
 	listarCargosSenUC := usecaseSenadores.NovoListarCargosUseCase(senadoClient)
@@ -342,6 +402,36 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		BuscarDetalhesDeputadoHandler:       handlerDeputados.NovoEsferaFederalBuscarDetalhesDeputadoHandler(depDetalhesUC),
 		BuscarDespesasDeputadoHandler:       handlerDeputados.NovoEsferaFederalBuscarDespesasDeputadoHandler(depDespesasUC),
 		BuscarOrgaoAssociadoDeputadoHandler: handlerDeputados.NovoEsferaFederalBuscarOrgaoAssociadoDeputadoHandler(depOrgaoUC),
+
+		DepListarPartidosHandler:        handlerDeputados.NovoEsferaFederalListarPartidosHandler(listarPartidosUC),
+		DepBuscarPartidoHandler:         handlerDeputados.NovoEsferaFederalBuscarPartidoHandler(buscarPartidoUC),
+		DepListarMembrosPartidoHandler:  handlerDeputados.NovoEsferaFederalListarMembrosPartidoHandler(listarMembrosPartidoUC),
+		DepListarProposicoesHandler:     handlerDeputados.NovoListarProposicoesHandler(listarProposicoesUC),
+		DepBuscarProposicaoHandler:      handlerDeputados.NovoBuscarProposicaoHandler(buscarProposicaoUC),
+		DepListarTramitacoesHandler:     handlerDeputados.NovoListarTramitacoesHandler(listarTramitacoesUC),
+		DepListarAutoresHandler:         handlerDeputados.NovoListarAutoresHandler(listarAutoresUC),
+		DepListarTemasHandler:           handlerDeputados.NovoListarTemasHandler(listarTemasUC),
+		DepListarRelacionadasHandler:    handlerDeputados.NovoListarRelacionadasHandler(listarRelacionadasUC),
+		DepListarEventosHandler:         handlerDeputados.NovoEsferaFederalListarEventosHandler(listarEventosUC),
+		DepBuscarEventoHandler:          handlerDeputados.NovoEsferaFederalBuscarEventoHandler(buscarEventoUC),
+		DepListarOrgaosHandler:          handlerDeputados.NovoEsferaFederalListarOrgaosHandler(listarOrgaosUC),
+		DepBuscarOrgaoHandler:           handlerDeputados.NovoEsferaFederalBuscarOrgaoHandler(buscarOrgaoUC),
+		DepListarMembrosOrgaoHandler:    handlerDeputados.NovoEsferaFederalListarMembrosOrgaoHandler(listarMembrosOrgaoUC),
+		DepListarBlocosHandler:          handlerDeputados.NovoEsferaFederalListarBlocosHandler(listarBlocosUC),
+		DepBuscarBlocoHandler:           handlerDeputados.NovoEsferaFederalBuscarBlocoHandler(buscarBlocoUC),
+		DepListarPartidosDoBlocoHandler: handlerDeputados.NovoEsferaFederalListarPartidosDoBlocoHandler(listarPartidosDoBlocoUC),
+		DepListarFrentesHandler:         handlerDeputados.NovoEsferaFederalListarFrentesHandler(listarFrentesUC),
+		DepBuscarFrenteHandler:          handlerDeputados.NovoEsferaFederalBuscarFrenteHandler(buscarFrenteUC),
+		DepListarMembrosFrenteHandler:   handlerDeputados.NovoEsferaFederalListarMembrosFrenteHandler(listarMembrosFrenteUC),
+		DepListarGruposHandler:          handlerDeputados.NovoEsferaFederalListarGruposHandler(listarGruposUC),
+		DepBuscarGrupoHandler:           handlerDeputados.NovoEsferaFederalBuscarGrupoHandler(buscarGrupoUC),
+		DepListarLegislaturasHandler:    handlerDeputados.NovoEsferaFederalListarLegislaturasHandler(listarLegislaturasUC),
+		DepBuscarLegislaturaHandler:     handlerDeputados.NovoEsferaFederalBuscarLegislaturaHandler(buscarLegislaturaUC),
+		DepListarVotacoesHandler:        handlerDeputados.NovoEsferaFederalListarVotacoesHandler(depListarVotacoesUC),
+		DepBuscarVotacaoHandler:         handlerDeputados.NovoEsferaFederalBuscarVotacaoHandler(buscarVotacaoUC),
+		DepListarVotosHandler:           handlerDeputados.NovoEsferaFederalListarVotosHandler(listarVotosUC),
+
+		BaixarDocumentoEmendaHandler: handlerSenadores.NovoBaixarDocumentoEmendaHandler(baixarDocumentoEmendaUC),
 
 		ListarSenadoresHandler:                   handlerSenadores.NovoListarSenadoresHandler(listarSenadoresUC, redisCache),
 		BuscarSenadorHandler:                     handlerSenadores.NovoBuscarSenadorHandler(buscarSenadorUC),
