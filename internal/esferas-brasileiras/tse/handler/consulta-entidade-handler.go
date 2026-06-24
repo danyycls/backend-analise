@@ -29,9 +29,5 @@ func (h *ConsultaEntidadeHandler) Consultar(c *gin.Context) {
 	}
 
 	result := h.useCase.Executar(c.Request.Context(), &req)
-	if result.Erro != "" {
-		c.JSON(http.StatusNotFound, result)
-		return
-	}
 	c.JSON(http.StatusOK, result)
 }

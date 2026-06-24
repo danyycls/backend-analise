@@ -12,19 +12,21 @@ import (
 	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
 	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
 	"github.com/danyele/podp/internal/shared/clients/opencnpj"
+	"github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 	tcu "github.com/danyele/podp/internal/shared/clients/tcu"
 	"github.com/danyele/podp/internal/shared/types"
 	"github.com/danyele/podp/internal/shared/utils"
 )
 
 type AnalisarLigacaoPoliticaUseCase struct {
-	db       database.DB
-	opencnpj opencnpj.Client
-	tcu      tcu.Client
+	db                  database.DB
+	opencnpj            opencnpj.Client
+	tcu                 tcu.Client
+	portaltransparencia *portaltransparencia.PortalTransparenciaClient
 }
 
-func NovoAnalisarLigacaoPoliticaUseCase(db database.DB, opencnpj opencnpj.Client, tcu tcu.Client) *AnalisarLigacaoPoliticaUseCase {
-	return &AnalisarLigacaoPoliticaUseCase{db: db, opencnpj: opencnpj, tcu: tcu}
+func NovoAnalisarLigacaoPoliticaUseCase(db database.DB, opencnpj opencnpj.Client, tcu tcu.Client, portaltransparencia *portaltransparencia.PortalTransparenciaClient) *AnalisarLigacaoPoliticaUseCase {
+	return &AnalisarLigacaoPoliticaUseCase{db: db, opencnpj: opencnpj, tcu: tcu, portaltransparencia: portaltransparencia}
 }
 
 func (u *AnalisarLigacaoPoliticaUseCase) Executar(ctx context.Context, licitacoes []AnalisarLigacaoPoliticaRequest) (*AnalisarLigacaoPoliticaResponse, error) {
@@ -42,6 +44,7 @@ func (u *AnalisarLigacaoPoliticaUseCase) Executar(ctx context.Context, licitacoe
 
 	u.enriquecerFornecedores(ctx, resultados)
 	u.enriquecerComTCU(ctx, resultados)
+	u.enriquecerComServidorPublico(ctx, resultados)
 
 	return &AnalisarLigacaoPoliticaResponse{
 		DocumentosProcessados: len(resultados),
@@ -393,6 +396,97 @@ func (u *AnalisarLigacaoPoliticaUseCase) enriquecerComTCU(
 					})
 				}
 			}
+		}(ref)
+	}
+	wg.Wait()
+}
+
+func (u *AnalisarLigacaoPoliticaUseCase) enriquecerComServidorPublico(
+	ctx context.Context,
+	resultados []VinculoLicitacao,
+) {
+	if u.portaltransparencia == nil {
+		return
+	}
+
+	type docRef struct {
+		licIdx int
+		docIdx int
+		doc    string
+	}
+
+	var refs []docRef
+
+	for li := range resultados {
+		for di := range resultados[li].Documentos {
+			doc := resultados[li].Documentos[di].DocumentoNormalizado
+			if len(doc) != 11 {
+				continue
+			}
+			refs = append(refs, docRef{licIdx: li, docIdx: di, doc: doc})
+
+			for vi := range resultados[li].Documentos[di].Vinculos {
+				v := &resultados[li].Documentos[di].Vinculos[vi]
+				if v.Detalhes == nil {
+					continue
+				}
+				if v.Detalhes.Fornecedor != nil {
+					doc2 := v.Detalhes.Fornecedor.Fornecedor.CPFCNPJ
+					if len(doc2) == 11 {
+						refs = append(refs, docRef{licIdx: li, docIdx: di, doc: doc2})
+					}
+				}
+				if v.Detalhes.Doador != nil {
+					doc2 := v.Detalhes.Doador.CPFCNPJ
+					if len(doc2) == 11 {
+						refs = append(refs, docRef{licIdx: li, docIdx: di, doc: doc2})
+					}
+				}
+			}
+		}
+	}
+
+	if len(refs) == 0 {
+		return
+	}
+
+	seen := make(map[string]bool)
+	uniqueRefs := make([]docRef, 0, len(refs))
+	for _, ref := range refs {
+		key := ref.doc
+		if !seen[key] {
+			seen[key] = true
+			uniqueRefs = append(uniqueRefs, ref)
+		}
+	}
+
+	const maxConcorrencia = 5
+	sem := make(chan struct{}, maxConcorrencia)
+	var wg sync.WaitGroup
+
+	for _, ref := range uniqueRefs {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(r docRef) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			servidores, err := u.portaltransparencia.ListarServidores(ctx, portaltransparencia.ServidorQueryParams{
+				Pagina: 1,
+				CPF:    r.doc,
+			})
+			if err != nil || len(servidores) == 0 {
+				return
+			}
+
+			dv := &resultados[r.licIdx].Documentos[r.docIdx]
+			dv.Vinculos = append(dv.Vinculos, Vinculo{
+				Tipo:      "servidor_publico",
+				Descricao: fmt.Sprintf("%d registro(s) de servidor público no Portal da Transparência", len(servidores)),
+				Detalhes: &VinculoDetalhes{
+					ServidoresPublicos: servidores,
+				},
+			})
 		}(ref)
 	}
 	wg.Wait()

@@ -16,6 +16,7 @@ import (
 	"github.com/danyele/podp/internal/ligacao-politica/handler"
 	"github.com/danyele/podp/internal/ligacao-politica/usecase"
 	opencnpjPkg "github.com/danyele/podp/internal/shared/clients/opencnpj"
+	portalPkg "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 	tcuPkg "github.com/danyele/podp/internal/shared/clients/tcu"
 	redisPkg "github.com/danyele/podp/internal/shared/redis"
 	"github.com/danyele/podp/internal/shared/testkit"
@@ -303,7 +304,7 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 				tc.Fixtures(ctx, t, pool)
 			}
 
-			uc := usecase.NovoAnalisarLigacaoPoliticaUseCase(db, ocMock, tcuMock)
+			uc := usecase.NovoAnalisarLigacaoPoliticaUseCase(db, ocMock, tcuMock, &portalPkg.PortalTransparenciaClient{})
 			h := handler.NovoAnalisarLigacaoPoliticaHandler(uc, redisMock)
 
 			r := testkit.NewGinEngine(func(r *gin.Engine) {

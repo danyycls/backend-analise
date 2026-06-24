@@ -9,7 +9,15 @@ import (
 )
 
 func (r *Repositorio) PrestacaoBuscarPorID(ctx context.Context, id uuid.UUID) (*types.PrestacaoContas, error) {
-	row := r.db.QueryRow(ctx, scanPrestacaoQuery+` WHERE id = $1 AND deleted_at IS NULL`, id)
+	return r.prestacaoBuscar(ctx, `WHERE id = $1 AND deleted_at IS NULL`, id)
+}
+
+func (r *Repositorio) PrestacaoBuscarPorSQ(ctx context.Context, sq int64) (*types.PrestacaoContas, error) {
+	return r.prestacaoBuscar(ctx, `WHERE sq_prestador_contas = $1 AND deleted_at IS NULL LIMIT 1`, sq)
+}
+
+func (r *Repositorio) prestacaoBuscar(ctx context.Context, where string, args ...any) (*types.PrestacaoContas, error) {
+	row := r.db.QueryRow(ctx, scanPrestacaoQuery+` `+where, args...)
 	var p types.PrestacaoContas
 	err := row.Scan(
 		&p.ID, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt,

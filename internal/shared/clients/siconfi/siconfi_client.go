@@ -35,9 +35,6 @@ type SICONFIClient struct {
 
 // NovoSICONFIClient cria uma nova instância do cliente SICONFI com timeout de 30 segundos.
 func NovoSICONFIClient(baseURL string) *SICONFIClient {
-	if baseURL == "" {
-		baseURL = "https://apidatalake.tesouro.gov.br/ords/siconfi/tt"
-	}
 	return &SICONFIClient{
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 30 * time.Second},

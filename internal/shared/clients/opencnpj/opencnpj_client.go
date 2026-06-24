@@ -16,9 +16,6 @@ type OpenCNPJClient struct {
 }
 
 func NovoOpenCNPJClient(baseURL string) *OpenCNPJClient {
-	if baseURL == "" {
-		baseURL = "https://api.opencnpj.org/%s"
-	}
 	return &OpenCNPJClient{
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 10 * time.Second},

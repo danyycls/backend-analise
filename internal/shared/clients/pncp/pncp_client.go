@@ -19,9 +19,6 @@ type PNCPClient struct {
 }
 
 func NovoPNCPClient(baseURL string) *PNCPClient {
-	if baseURL == "" {
-		baseURL = "https://pncp.gov.br/pncp-consulta/v1"
-	}
 	return &PNCPClient{
 		baseURL:        baseURL + "/contratos",
 		basePublicacao: baseURL + "/contratacoes/publicacao",

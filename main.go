@@ -62,48 +62,6 @@ func init() {
 	if _, existe := os.LookupEnv("DB_HOST"); !existe {
 		_ = carregarArquivoEnv(".env")
 	}
-	if strings.TrimSpace(os.Getenv("DB_HOST")) == "" {
-		_ = os.Setenv("DB_HOST", "localhost")
-	}
-	if strings.TrimSpace(os.Getenv("DB_PORT")) == "" {
-		_ = os.Setenv("DB_PORT", "5432")
-	}
-	if strings.TrimSpace(os.Getenv("DB_USER")) == "" {
-		_ = os.Setenv("DB_USER", "postgres")
-	}
-	if strings.TrimSpace(os.Getenv("DB_PASSWORD")) == "" {
-		_ = os.Setenv("DB_PASSWORD", "postgres")
-	}
-	if strings.TrimSpace(os.Getenv("DB_NAME")) == "" {
-		_ = os.Setenv("DB_NAME", "tse_data")
-	}
-	if strings.TrimSpace(os.Getenv("PORTAL_TRANSPARENCIA_BASE_URL")) == "" {
-		_ = os.Setenv("PORTAL_TRANSPARENCIA_BASE_URL", "https://api.portaldatransparencia.gov.br")
-	}
-	if strings.TrimSpace(os.Getenv("PNCP_BASE_URL")) == "" {
-		_ = os.Setenv("PNCP_BASE_URL", "https://pncp.gov.br/pncp-consulta/v1")
-	}
-	if strings.TrimSpace(os.Getenv("TCU_BASE_URL")) == "" {
-		_ = os.Setenv("TCU_BASE_URL", "https://certidoes.apps.gov.br/api/publico")
-	}
-	if strings.TrimSpace(os.Getenv("SICONFI_BASE_URL")) == "" {
-		_ = os.Setenv("SICONFI_BASE_URL", "https://apidatalake.tesouro.gov.br/ords/siconfi/tt")
-	}
-	if strings.TrimSpace(os.Getenv("DEPUTADOS_BASE_URL")) == "" {
-		_ = os.Setenv("DEPUTADOS_BASE_URL", "https://dadosabertos.camara.leg.br/api/v2")
-	}
-	if strings.TrimSpace(os.Getenv("IBGE_BASE_URL")) == "" {
-		_ = os.Setenv("IBGE_BASE_URL", "https://servicodados.ibge.gov.br/api/v1/localidades")
-	}
-	if strings.TrimSpace(os.Getenv("IBGE_AGREGADOS_BASE_URL")) == "" {
-		_ = os.Setenv("IBGE_AGREGADOS_BASE_URL", "https://servicodados.ibge.gov.br/api/v3/agregados")
-	}
-	if strings.TrimSpace(os.Getenv("OPENCNPJ_BASE_URL")) == "" {
-		_ = os.Setenv("OPENCNPJ_BASE_URL", "https://api.opencnpj.org/%s")
-	}
-	if strings.TrimSpace(os.Getenv("SENADO_BASE_URL")) == "" {
-		_ = os.Setenv("SENADO_BASE_URL", "https://legis.senado.leg.br/dadosabertos")
-	}
 }
 
 func carregarArquivoEnv(caminho string) error {
@@ -134,15 +92,9 @@ func carregarArquivoEnv(caminho string) error {
 }
 
 func obterPorta() string {
-	if porta := strings.TrimSpace(os.Getenv("PORT")); porta != "" {
-		return porta
-	}
-	return "8080"
+	return strings.TrimSpace(os.Getenv("PORT"))
 }
 
 func obterDiretorioCSV() string {
-	if diretorio := strings.TrimSpace(os.Getenv("IMPORTACAO_DIRETORIO_CSV")); diretorio != "" {
-		return diretorio
-	}
-	return "dataCSV"
+	return strings.TrimSpace(os.Getenv("IMPORTACAO_DIRETORIO_CSV"))
 }

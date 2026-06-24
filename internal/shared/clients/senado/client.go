@@ -29,9 +29,6 @@ func makeQueryParams(params map[string]string) url.Values {
 }
 
 func NovoSenadoClient(baseURL string) *SenadoClient {
-	if baseURL == "" {
-		baseURL = "https://legis.senado.leg.br/dadosabertos"
-	}
 	return &SenadoClient{
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 60 * time.Second},

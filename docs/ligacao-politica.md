@@ -45,6 +45,11 @@ POST /busca/contexto (JSON)
 │               │   - BuscarInidoneos (CPF e/ou CNPJ)
 └──────┬────────┘   (apenas se retornar > 0 registros)
        ▼
+┌───────────────────┐
+│  Enriquece        │  Em paralelo (max 5 goroutines):
+│  Servidor Público │   - ListarServidores (só CPF, via Portal da Transparência)
+└────────┬──────────┘   (apenas se retornar > 0 registros)
+         ▼
 ┌───────────────┐
 │   Redis       │  Grava resposta no cache (TTL 30 dias)
 │               │  Chave: podp:cache:ligacao-politica:<md5(body)>
@@ -59,7 +64,8 @@ Passos resumidos:
 2. **Busca no TSE (PostgreSQL)**: consulta as tabelas `fornecedor`, `doador`, `receita_candidato`, `receita_orgao_partidario` e tabelas dependentes. Para CPFs, busca também a variante com prefixo `000` (formato usado pelo TSE para CPF em CNPJ).
 3. **Enriquecimento OpenCNPJ**: para cada vínculo de fornecedor com CNPJ de 14 dígitos, busca dados cadastrais (QSA, razão social, situação na RFB, capital social).
 4. **Enriquecimento TCU**: para todos os documentos (principal, sócios, fornecedores e doadores encontrados), consulta sanções em paralelo. Só adiciona vínculo se houver registro.
-5. **Cache Redis**: a resposta final é gravada em cache (chave derivada do body) com TTL de 30 dias. Falha no Redis é tratada como *warning* e **não aborta** a requisição.
+5. **Enriquecimento Servidor Público**: para cada CPF encontrado (principal, sócios, fornecedores e doadores), consulta o **Portal da Transparência** (`/api-de-dados/servidores`) para verificar se a pessoa é servidor público federal. Só adiciona vínculo se houver registro.
+6. **Cache Redis**: a resposta final é gravada em cache (chave derivada do body) com TTL de 30 dias. Falha no Redis é tratada como *warning* e **não aborta** a requisição.
 
 ### O que é analisado
 
@@ -74,6 +80,7 @@ Cada documento processado recebe um array de `vinculos`, cada um com um `tipo` i
 | `tcu_contas_irregulares` | Contas julgadas irregulares no TCU | `[]ContasIrregulares` |
 | `tcu_inabilitado` | Inabilitado para cargo em comissão (TCU) | `[]Sancoes` |
 | `tcu_inidoneo` | Licitante inidôneo (TCU) | `[]Sancoes` |
+| `servidor_publico` | CPF registrado como servidor público federal no Portal da Transparência | `[]CadastroServidor` |
 
 Cada vínculo traz ainda uma `descricao` textual legível por humano (ex.: `"11222333000181 é fornecedor de campanha com 3 despesa(s) de candidato e 1 despesa(s) partidária(s)"`), gerada em `analisar-ligacao-politica-usecase.go:401-423`.
 
@@ -91,6 +98,7 @@ O campo `origem` do documento indica a proveniência na licitação:
 | **TSE (PostgreSQL)** | Repositório interno (não-HTTP) | `FornecedoresBuscarPorDocumento`, `DoadoresBuscarPorDocumento`, `ReceitasCandidatoBuscarPorDoadorID`, `ReceitasOrgaoBuscarPorDoadorID`, `DespesasCandidatoBuscarPorFornecedorID`, `DespesasPartidoBuscarPorFornecedorID` | Verifica se o documento aparece como fornecedor/doador de campanha e lista as doações/despesas correspondentes |
 | **OpenCNPJ** | HTTP — `internal/shared/clients/opencnpj` | `Buscar(ctx, cnpj)` | Enriquece vínculos `fornecedor` com CNPJ de 14 dígitos: QSA, razão social, nome fantasia, situação cadastral RFB, capital social |
 | **TCU** | HTTP — `internal/shared/clients/tcu` | `BuscarContasIrregulares`, `BuscarInabilitados`, `BuscarInidoneos` (não usa `BuscarFinsEleitorais` nesta rota) | Verifica sanções TCU para cada documento (principal, sócios, fornecedores e doadores) |
+| **Portal da Transparência** | HTTP — `internal/shared/clients/portaltransparencia` | `ListarServidores` | Verifica se cada CPF encontrado é servidor público federal |
 | **Redis** | Cache — `internal/shared/redis` | `Get`, `Set` (chave `podp:cache:ligacao-politica:<md5>`, TTL 30 dias) | Evita reprocessar o mesmo body; falha não aborta a requisição |
 
 > Documentação dos clients: **[docs/clientes/tcu.md](./clientes/tcu.md)**, **[docs/clientes/opencnpj.md](./clientes/opencnpj.md)** (este último ainda como placeholder).

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
+	"github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 	"github.com/danyele/podp/internal/shared/clients/tcu"
 	"github.com/danyele/podp/internal/shared/types"
 )
@@ -50,11 +51,12 @@ type Vinculo struct {
 }
 
 type VinculoDetalhes struct {
-	Fornecedor              *tsetypes.FornecedorDetalhado   `json:"fornecedor,omitempty"`
-	Doador                  *types.Doador                   `json:"doador,omitempty"`
-	ReceitasCandidato       []*types.ReceitaCandidato       `json:"receitas_candidato,omitempty"`
-	ReceitasOrgaoPartidario []*types.ReceitaOrgaoPartidario `json:"receitas_orgao_partidario,omitempty"`
-	ContasIrregulares       []tcu.ContasIrregulares         `json:"contas_irregulares,omitempty"`
-	Inabilitados            []tcu.Sancoes                   `json:"inabilitados,omitempty"`
-	Inidoneos               []tcu.Sancoes                   `json:"inidoneos,omitempty"`
+	Fornecedor              *tsetypes.FornecedorDetalhado          `json:"fornecedor,omitempty"`
+	Doador                  *types.Doador                          `json:"doador,omitempty"`
+	ReceitasCandidato       []*types.ReceitaCandidato              `json:"receitas_candidato,omitempty"`
+	ReceitasOrgaoPartidario []*types.ReceitaOrgaoPartidario        `json:"receitas_orgao_partidario,omitempty"`
+	ContasIrregulares       []tcu.ContasIrregulares                `json:"contas_irregulares,omitempty"`
+	Inabilitados            []tcu.Sancoes                          `json:"inabilitados,omitempty"`
+	Inidoneos               []tcu.Sancoes                          `json:"inidoneos,omitempty"`
+	ServidoresPublicos      []portaltransparencia.CadastroServidor `json:"servidores_publicos,omitempty"`
 }

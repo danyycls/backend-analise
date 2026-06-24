@@ -14,7 +14,6 @@ func NovoRoteador(app *App) *gin.Engine {
 
 	if app.AnaliseOrgaoPNCPHandler != nil {
 		roteador.POST("/orgao/analise", app.AnaliseOrgaoPNCPHandler.AnaliseOrgaoPNCP)
-		roteador.GET("/orgao/analise/stream/:jobId", app.WSOrgaoStreamHandler.WSStream)
 		roteador.GET("/orgao/analise/batch/:jobId", app.AnaliseOrgaoPNCPHandler.BuscarResultadosBatch)
 	}
 
@@ -32,7 +31,6 @@ func NovoRoteador(app *App) *gin.Engine {
 
 	if app.AnalisePublicacaoHandler != nil {
 		roteador.POST("/publicacao/analise", app.AnalisePublicacaoHandler.AnalisePublicacao)
-		roteador.GET("/publicacao/analise/stream/:jobId", app.WSPublicacaoStreamHandler.WSStream)
 		roteador.GET("/publicacao/analise/batch/:jobId", app.AnalisePublicacaoHandler.BuscarResultadosBatch)
 		roteador.GET("/ibge/municipios/:uf", app.ListarMunicipiosHandler.ListarMunicipios)
 	}
@@ -137,14 +135,16 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/estado/:uf/deputados", app.BuscarDeputadosEstadoHandler.BuscarDeputadosEstado)
 		roteador.GET("/estado/:uf/senadores", app.BuscarSenadoresEstadoHandler.BuscarSenadoresEstado)
 		roteador.GET("/ibge/municipios-populacao/:uf", app.BuscarMunicipiosPopulacaoHandler.BuscarMunicipiosPopulacao)
+		roteador.GET("/estado/:uf/recursos-federais", app.BuscarRecursosFederaisCompletoHandler.Buscar)
 	}
 
-	if app.BuscarFinanceiroWSHandler != nil {
-		roteador.GET("/estado/:uf/financeiro/stream", app.BuscarFinanceiroWSHandler.BuscarFinanceiroWS)
+	if app.BuscarLicitacoesUFHandler != nil {
+		roteador.GET("/estado/:uf/licitacoes", app.BuscarLicitacoesUFHandler.Buscar)
+		roteador.GET("/estado/:uf/licitacoes/municipio/:codigo", app.BuscarLicitacoesUFHandler.Buscar)
 	}
 
-	if app.BuscarDetalhesMunicipioWSHandler != nil {
-		roteador.GET("/municipio/:codigoIBGE/detalhes/stream", app.BuscarDetalhesMunicipioWSHandler.BuscarDetalhesMunicipioWS)
+	if app.WSHub != nil {
+		roteador.GET("/ws", app.WSHub.Handle)
 	}
 
 	if app.BuscarSIAPEHandler != nil {

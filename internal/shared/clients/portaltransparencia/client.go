@@ -19,9 +19,6 @@ type PortalTransparenciaClient struct {
 }
 
 func NovoPortalTransparenciaClient(apiKey, baseURL string) *PortalTransparenciaClient {
-	if baseURL == "" {
-		baseURL = "https://api.portaldatransparencia.gov.br"
-	}
 	return &PortalTransparenciaClient{
 		baseURL: baseURL,
 		apiKey:  apiKey,

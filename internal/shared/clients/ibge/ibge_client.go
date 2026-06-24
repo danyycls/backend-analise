@@ -21,12 +21,6 @@ type IBGEClient struct {
 }
 
 func NovoIBGEClient(baseURL, agregadosURL string) *IBGEClient {
-	if baseURL == "" {
-		baseURL = "https://servicodados.ibge.gov.br/api/v1/localidades"
-	}
-	if agregadosURL == "" {
-		agregadosURL = "https://servicodados.ibge.gov.br/api/v3/agregados"
-	}
 	return &IBGEClient{
 		baseURL:      baseURL,
 		agregadosURL: agregadosURL,

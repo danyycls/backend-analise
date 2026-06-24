@@ -16,9 +16,6 @@ type DeputadosClient struct {
 }
 
 func NovoDeputadosClient(baseURL string) *DeputadosClient {
-	if baseURL == "" {
-		baseURL = "https://dadosabertos.camara.leg.br/api/v2"
-	}
 	return &DeputadosClient{
 		baseURL: baseURL,
 		client:  &http.Client{Timeout: 30 * time.Second},

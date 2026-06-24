@@ -34,6 +34,8 @@ func (u *ConsultarEntidadeUseCase) Executar(ctx context.Context, req *tsetypes.C
 		return u.buscarReceita(ctx, repo, req.Chave)
 	case "despesa":
 		return u.buscarDespesa(ctx, repo, req.Chave)
+	case "prestador_contas":
+		return u.buscarPrestadorContas(ctx, repo, req.Chave)
 	default:
 		return &tsetypes.ConsultaEntidadeResponse{
 			Tipo:  req.Tipo,
@@ -193,6 +195,21 @@ func (u *ConsultarEntidadeUseCase) receitaOrgaoParaEntidadeDTO(ctx context.Conte
 		}
 	}
 	return dto
+}
+
+func (u *ConsultarEntidadeUseCase) buscarPrestadorContas(ctx context.Context, repo *repositorio.Repositorio, chave string) *tsetypes.ConsultaEntidadeResponse {
+	sq, err := strconv.ParseInt(chave, 10, 64)
+	if err != nil {
+		return &tsetypes.ConsultaEntidadeResponse{Tipo: "prestador_contas", Chave: chave, Erro: "chave invalida, esperado numero"}
+	}
+
+	prest, err := repo.PrestacaoBuscarPorSQ(ctx, sq)
+	if err == nil && prest != nil {
+		dto := repositorio.MontarPrestacaoDTO(ctx, repo, prest)
+		return &tsetypes.ConsultaEntidadeResponse{Tipo: "prestador_contas", Chave: chave, Dados: dto}
+	}
+
+	return &tsetypes.ConsultaEntidadeResponse{Tipo: "prestador_contas", Chave: chave, Erro: "prestador de contas nao encontrado"}
 }
 
 func (u *ConsultarEntidadeUseCase) buscarDespesa(ctx context.Context, repo *repositorio.Repositorio, chave string) *tsetypes.ConsultaEntidadeResponse {

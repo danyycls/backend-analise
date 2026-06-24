@@ -208,3 +208,13 @@ func (h *AnalisePublicacaoHandler) BuscarResultadosBatch(c *gin.Context) {
 func (h *AnalisePublicacaoHandler) PubJobs() map[string]*pubJobState {
 	return h.jobs
 }
+
+func (h *AnalisePublicacaoHandler) GetJobChan(jobID string) (<-chan pncp.EventoAnalise, bool) {
+	h.jobsMu.Lock()
+	defer h.jobsMu.Unlock()
+	job, exists := h.jobs[jobID]
+	if !exists {
+		return nil, false
+	}
+	return job.eventChan, true
+}

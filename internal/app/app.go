@@ -19,8 +19,6 @@ import (
 	handlerPortalServidores "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/servidores/handler"
 	handlerSenadores "github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/handler"
 	handlerTCU "github.com/danyele/podp/internal/esferas-brasileiras/federal/tcu/handler"
-	handlerMunicipal "github.com/danyele/podp/internal/esferas-brasileiras/municipal/handler"
-
 	tseHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/handler"
 	importacaoHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/handler"
 	importacaoRepositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
@@ -54,6 +52,7 @@ import (
 	usecaseMunicipal "github.com/danyele/podp/internal/esferas-brasileiras/municipal/usecase"
 
 	usecaseLigacao "github.com/danyele/podp/internal/ligacao-politica/usecase"
+	"github.com/danyele/podp/internal/stream"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -80,9 +79,8 @@ type App struct {
 	AnalisarLigacaoPoliticaHandler *handlerLigacao.AnalisarLigacaoPoliticaHandler
 
 	AnaliseOrgaoPNCPHandler   *handlerPNCP.AnaliseOrgaoPNCPHandler
-	WSOrgaoStreamHandler      *handlerPNCP.WSOrgaoStreamHandler
 	AnalisePublicacaoHandler  *handlerPNCP.AnalisePublicacaoHandler
-	WSPublicacaoStreamHandler *handlerPNCP.WSPublicacaoStreamHandler
+	BuscarLicitacoesUFHandler *handlerPNCP.BuscarLicitacoesUFHandler
 	ListarMunicipiosHandler   *handlerPNCP.ListarMunicipiosHandler
 
 	HandlerBuscaRelacoes    *tseHandler.BuscaRelacoesHandler
@@ -124,16 +122,15 @@ type App struct {
 	ListarTodasComissoesHandler              *handlerSenadores.ListarTodasComissoesHandler
 	BuscarComissaoHandler                    *handlerSenadores.BuscarComissaoHandler
 
-	ListarEstadosHandler             *handlerEstadual.EsferaEstadualListarEstadosHandler
-	BuscarDadosEstadoHandler         *handlerEstadual.EsferaEstadualBuscarDadosCompletosEstadoHandler
-	BuscarBasicoEstadoHandler        *handlerEstadual.EsferaEstadualBuscarDadosBasicosEstadoHandler
-	BuscarCandidatosEstadoHandler    *handlerEstadual.EsferaEstadualBuscarCandidatosHandler
-	BuscarDeputadosEstadoHandler     *handlerEstadual.EsferaEstadualBuscarDeputadosHandler
-	BuscarSenadoresEstadoHandler     *handlerEstadual.EsferaEstadualBuscarSenadoresHandler
-	BuscarMunicipiosPopulacaoHandler *handlerEstadual.EsferaEstadualBuscarMunicipiosPopulacaoHandler
-	BuscarFinanceiroWSHandler        *handlerEstadual.EsferaEstadualBuscarFinanceiroWSHandler
-
-	BuscarDetalhesMunicipioWSHandler *handlerMunicipal.EsferaMunicipalBuscarDetalhesWSHandler
+	ListarEstadosHandler                  *handlerEstadual.EsferaEstadualListarEstadosHandler
+	BuscarDadosEstadoHandler              *handlerEstadual.EsferaEstadualBuscarDadosCompletosEstadoHandler
+	BuscarBasicoEstadoHandler             *handlerEstadual.EsferaEstadualBuscarDadosBasicosEstadoHandler
+	BuscarCandidatosEstadoHandler         *handlerEstadual.EsferaEstadualBuscarCandidatosHandler
+	BuscarDeputadosEstadoHandler          *handlerEstadual.EsferaEstadualBuscarDeputadosHandler
+	BuscarSenadoresEstadoHandler          *handlerEstadual.EsferaEstadualBuscarSenadoresHandler
+	BuscarMunicipiosPopulacaoHandler      *handlerEstadual.EsferaEstadualBuscarMunicipiosPopulacaoHandler
+	BuscarRecursosFederaisCompletoHandler *handlerEstadual.EsferaEstadualBuscarRecursosFederaisCompletoHandler
+	WSHub                                 *stream.Hub
 
 	BuscarSIAPEHandler    *handlerPortalOrgaos.BuscarSIAPEHandler
 	BuscarSIAFIHandler    *handlerPortalOrgaos.BuscarSIAFIHandler
@@ -199,7 +196,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, leitorCSVService)
 	leitorCSVHandler := importacaoHandler.NovoLeitorCSVHandler(leitorCSVUseCase)
 
-	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, opencnpjClient, tcuClient)
+	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, opencnpjClient, tcuClient, portalClient)
 	handlerLigacao := handlerLigacao.NovoAnalisarLigacaoPoliticaHandler(casoUsoLigacao, redisCache)
 
 	relacoesHandlerBusca := tseHandler.NovoBuscarRelacoesHandler(tseUseCase.NovoBuscarRelacoesUseCase(db))
@@ -261,6 +258,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	despesaCategoriaUC := dadosfinanceiros.NovoEsferaEstadualBuscarDespesaCategoriaUseCase(baseFinanceiroUC)
 	rreoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRREOUseCase(baseFinanceiroUC)
 	recursosFederaisUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisUseCase(portalClient, redisCache)
+	recursosFederaisCompletoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisCompletoUseCase(portalClient, redisCache)
 
 	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, pncpClient)
 
@@ -322,9 +320,8 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		AnalisarLigacaoPoliticaHandler: handlerLigacao,
 
 		AnaliseOrgaoPNCPHandler:   pncpAnaliseOrgaoHandler,
-		WSOrgaoStreamHandler:      handlerPNCP.NovoWSOrgaoStreamHandler(pncpAnaliseOrgaoHandler.Jobs()),
 		AnalisePublicacaoHandler:  pncpAnalisePubHandler,
-		WSPublicacaoStreamHandler: handlerPNCP.NovoWSPublicacaoStreamHandler(pncpAnalisePubHandler.PubJobs()),
+		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache)),
 		ListarMunicipiosHandler:   handlerPNCP.NovoListarMunicipiosHandler(ibgeClient),
 
 		HandlerBuscaRelacoes:    relacoesHandlerBusca,
@@ -366,16 +363,24 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		ListarTodasComissoesHandler:              handlerSenadores.NovoListarTodasComissoesHandler(listarTodasComissoesUC),
 		BuscarComissaoHandler:                    handlerSenadores.NovoBuscarComissaoHandler(buscarComissaoUC),
 
-		ListarEstadosHandler:             handlerEstadual.NovoEsferaEstadualListarEstadosHandler(listarEstadosUC),
-		BuscarDadosEstadoHandler:         handlerEstadual.NovoEsferaEstadualBuscarDadosCompletosEstadoHandler(dadosCompletosUC),
-		BuscarBasicoEstadoHandler:        handlerEstadual.NovoEsferaEstadualBuscarDadosBasicosEstadoHandler(basicoEstadoUC),
-		BuscarCandidatosEstadoHandler:    handlerEstadual.NovoEsferaEstadualBuscarCandidatosHandler(candidatosEstadoUC),
-		BuscarDeputadosEstadoHandler:     handlerEstadual.NovoEsferaEstadualBuscarDeputadosHandler(deputadosEstadoUC),
-		BuscarSenadoresEstadoHandler:     handlerEstadual.NovoEsferaEstadualBuscarSenadoresHandler(senadoresEstadoUC),
-		BuscarMunicipiosPopulacaoHandler: handlerEstadual.NovoEsferaEstadualBuscarMunicipiosPopulacaoHandler(municipiosPopulacaoUC),
-		BuscarFinanceiroWSHandler:        handlerEstadual.NovoEsferaEstadualBuscarFinanceiroWSHandler(despesaPessoalUC, despesaCategoriaUC, rreoUC, recursosFederaisUC),
+		ListarEstadosHandler:                  handlerEstadual.NovoEsferaEstadualListarEstadosHandler(listarEstadosUC),
+		BuscarDadosEstadoHandler:              handlerEstadual.NovoEsferaEstadualBuscarDadosCompletosEstadoHandler(dadosCompletosUC),
+		BuscarBasicoEstadoHandler:             handlerEstadual.NovoEsferaEstadualBuscarDadosBasicosEstadoHandler(basicoEstadoUC),
+		BuscarCandidatosEstadoHandler:         handlerEstadual.NovoEsferaEstadualBuscarCandidatosHandler(candidatosEstadoUC),
+		BuscarDeputadosEstadoHandler:          handlerEstadual.NovoEsferaEstadualBuscarDeputadosHandler(deputadosEstadoUC),
+		BuscarSenadoresEstadoHandler:          handlerEstadual.NovoEsferaEstadualBuscarSenadoresHandler(senadoresEstadoUC),
+		BuscarMunicipiosPopulacaoHandler:      handlerEstadual.NovoEsferaEstadualBuscarMunicipiosPopulacaoHandler(municipiosPopulacaoUC),
+		BuscarRecursosFederaisCompletoHandler: handlerEstadual.NovoEsferaEstadualBuscarRecursosFederaisCompletoHandler(recursosFederaisCompletoUC),
 
-		BuscarDetalhesMunicipioWSHandler: handlerMunicipal.NovoEsferaMunicipalBuscarDetalhesWSHandler(detalhesMunicipioUC),
+		WSHub: stream.NewHub(
+			pncpAnaliseOrgaoHandler,
+			pncpAnalisePubHandler,
+			despesaPessoalUC,
+			despesaCategoriaUC,
+			rreoUC,
+			recursosFederaisUC,
+			detalhesMunicipioUC,
+		),
 
 		BuscarSIAPEHandler:    handlerPortalOrgaos.NovoBuscarSIAPEHandler(siapeUC),
 		BuscarSIAFIHandler:    handlerPortalOrgaos.NovoBuscarSIAFIHandler(siafiUC),
