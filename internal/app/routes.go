@@ -163,9 +163,15 @@ func NovoRoteador(app *App) *gin.Engine {
 	if app.ListarProcessoEmendasHandler != nil {
 		roteador.GET("/senado/processo/emendas", app.ListarProcessoEmendasHandler.Listar)
 	}
+
 	if app.BuscarProcessoHandler != nil {
 		roteador.GET("/senado/processo/:id", app.BuscarProcessoHandler.Buscar)
 	}
+
+	if app.FeedbackHandler != nil {
+		roteador.POST("/feedback", app.FeedbackHandler.SaveFeedback)
+	}
+
 	if app.ListarVotacoesHandler != nil {
 		roteador.GET("/senado/votacoes", app.ListarVotacoesHandler.Listar)
 	}

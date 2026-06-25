@@ -4,9 +4,10 @@ import (
 	"context"
 	"os"
 
+	feedback "github.com/danyele/podp/internal/feedback"
 	"github.com/danyele/podp/internal/shared/database"
 	"github.com/danyele/podp/internal/shared/logger"
-	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/redis"
 
 	handlerEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/handler"
 	handlerDeputados "github.com/danyele/podp/internal/esferas-brasileiras/federal/deputados/handler"
@@ -70,6 +71,7 @@ type App struct {
 	SICONFIClient   *siconfi.SICONFIClient
 	PortalClient    *clientPortal.PortalTransparenciaClient
 	RedisCache      *redis.RedisCache
+	FeedbackHandler *feedback.Handler
 
 	LeitorCSVService *importacaoService.LeitorCSVService
 	LeitorCSVUseCase importacaoUseCase.ImportarCSVUseCase
@@ -358,6 +360,9 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	emendasUC := usecasePortalEmendas.NovoBuscarEmendasUseCase(portalClient)
 	documentosEmendaUC := usecasePortalEmendas.NovoBuscarDocumentosEmendaUseCase(portalClient)
 
+	feedbackUsecase := &feedback.SaveFeedbackUsecase{Redis: redisCache}
+	feedbackHandler := &feedback.Handler{Usecase: feedbackUsecase}
+
 	return &App{
 		DB:     db,
 		PgPool: pgPool,
@@ -371,6 +376,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		SICONFIClient:   siconfiClient,
 		PortalClient:    portalClient,
 		RedisCache:      redisCache,
+		FeedbackHandler: feedbackHandler,
 
 		LeitorCSVService: leitorCSVService,
 		LeitorCSVUseCase: leitorCSVUseCase,
@@ -433,7 +439,8 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 		BaixarDocumentoEmendaHandler: handlerSenadores.NovoBaixarDocumentoEmendaHandler(baixarDocumentoEmendaUC),
 
-		ListarSenadoresHandler:                   handlerSenadores.NovoListarSenadoresHandler(listarSenadoresUC, redisCache),
+		ListarSenadoresHandler: handlerSenadores.NovoListarSenadoresHandler(listarSenadoresUC, redisCache),
+
 		BuscarSenadorHandler:                     handlerSenadores.NovoBuscarSenadorHandler(buscarSenadorUC),
 		ListarCargosSenadorHandler:               handlerSenadores.NovoListarCargosHandler(listarCargosSenUC),
 		ListarComissoesSenadorHandler:            handlerSenadores.NovoListarComissoesHandler(listarComissoesSenUC),
