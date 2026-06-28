@@ -15,18 +15,17 @@ import (
 
 	"github.com/danyele/podp/internal/ligacao-politica/handler"
 	"github.com/danyele/podp/internal/ligacao-politica/usecase"
-	opencnpjPkg "github.com/danyele/podp/internal/shared/clients/opencnpj"
 	portalPkg "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
 	tcuPkg "github.com/danyele/podp/internal/shared/clients/tcu"
 	redisPkg "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/services"
 	"github.com/danyele/podp/internal/shared/testkit"
-	"github.com/danyele/podp/internal/shared/types"
 )
 
 type analisarTestCase struct {
 	testkit.IntegrationTestCase
 	body  any
-	mocks func(ocMock *opencnpjPkg.MockClient, tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache)
+	mocks func(tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache)
 }
 
 func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
@@ -199,46 +198,7 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 		},
 		{
 			IntegrationTestCase: testkit.IntegrationTestCase{
-				Name: "Enriquecimento OpenCNPJ para fornecedor CNPJ",
-				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
-					testkit.InsertFornecedor(ctx, t, pool, "11222333000181", "Fornecedor Teste Ltda")
-				},
-				Assert: func(t *testing.T, w *httptest.ResponseRecorder) {
-					require.Equal(t, http.StatusOK, w.Code)
-					var resp usecase.AnalisarLigacaoPoliticaResponse
-					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-					require.Len(t, resp.Resultados[0].Documentos, 1)
-					v := resp.Resultados[0].Documentos[0].Vinculos[0]
-					require.Equal(t, "fornecedor", v.Tipo)
-					require.NotNil(t, v.Detalhes)
-					require.NotNil(t, v.Detalhes.Fornecedor)
-					require.NotNil(t, v.Detalhes.Fornecedor.Fornecedor.Enriquecimento)
-					require.Equal(t, "Empresa Teste Ltda", *v.Detalhes.Fornecedor.Fornecedor.Enriquecimento.RazaoSocial)
-					require.Equal(t, "ATIVA", *v.Detalhes.Fornecedor.Fornecedor.Enriquecimento.SituacaoCadastral)
-				},
-			},
-			body: map[string][]usecase.AnalisarLigacaoPoliticaRequest{
-				"licitacoes": {
-					{NumeroControlePncp: "pncp-008", CpfCnpj: "11222333000181"},
-				},
-			},
-			mocks: func(ocMock *opencnpjPkg.MockClient, tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache) {
-				ocMock.EXPECT().Buscar(gomock.Any(), "11222333000181").Return(
-					&types.OpenCNPJResponse{
-						CNPJ:              "11222333000181",
-						RazaoSocial:       "Empresa Teste Ltda",
-						NomeFantasia:      "Teste Fantasia",
-						SituacaoCadastral: "ATIVA",
-						CapitalSocial:     "10000.00",
-					}, nil)
-				ocMock.EXPECT().Buscar(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-				mocksTcuVazio(tcuMock)
-				mocksCacheMiss(redisMock)
-			},
-		},
-		{
-			IntegrationTestCase: testkit.IntegrationTestCase{
-				Name: "Enriquecimento TCU para documento com dados",
+				Name: "Sancoes TCU para documento com dados",
 				Fixtures: func(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 					testkit.InsertDoador(ctx, t, pool, "11122233344", "Doador Teste")
 				},
@@ -264,8 +224,7 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					{NumeroControlePncp: "pncp-009", CpfCnpj: "11122233344"},
 				},
 			},
-			mocks: func(ocMock *opencnpjPkg.MockClient, tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache) {
-				ocMock.EXPECT().Buscar(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+			mocks: func(tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache) {
 				tcuMock.EXPECT().BuscarContasIrregulares(gomock.Any(), gomock.Any()).Return(
 					[]tcuPkg.ContasIrregulares{
 						{
@@ -293,18 +252,22 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ocMock := opencnpjPkg.NewMockClient(ctrl)
 			tcuMock := tcuPkg.NewMockClient(ctrl)
 			redisMock := redisPkg.NewMockCache(ctrl)
 
-			tc.mocks(ocMock, tcuMock, redisMock)
+			tc.mocks(tcuMock, redisMock)
 
 			testkit.CleanAllTables(ctx, t, pool)
 			if tc.Fixtures != nil {
 				tc.Fixtures(ctx, t, pool)
 			}
 
-			uc := usecase.NovoAnalisarLigacaoPoliticaUseCase(db, ocMock, tcuMock, &portalPkg.PortalTransparenciaClient{})
+			normalizarSvc := services.NovoNormalizarDocumentosService()
+			buscarSvc := services.NovoBuscarLigacaoPoliticaTSEService()
+			verificarTcuSvc := services.NovoVerificarSancoesTCUService(tcuMock)
+			verificarServSvc := services.NovoVerificarServidorPublicoService(&portalPkg.PortalTransparenciaClient{})
+
+			uc := usecase.NovoAnalisarLigacaoPoliticaUseCase(db, normalizarSvc, buscarSvc, verificarTcuSvc, verificarServSvc)
 			h := handler.NovoAnalisarLigacaoPoliticaHandler(uc, redisMock)
 
 			r := testkit.NewGinEngine(func(r *gin.Engine) {
@@ -318,16 +281,11 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 	}
 }
 
-func mocksVazios(ocMock *opencnpjPkg.MockClient, tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache) {
-	ocMock.EXPECT().Buscar(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-	mocksTcuVazio(tcuMock)
-	mocksCacheMiss(redisMock)
-}
-
-func mocksTcuVazio(tcuMock *tcuPkg.MockClient) {
+func mocksVazios(tcuMock *tcuPkg.MockClient, redisMock *redisPkg.MockCache) {
 	tcuMock.EXPECT().BuscarContasIrregulares(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	tcuMock.EXPECT().BuscarInidoneos(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	tcuMock.EXPECT().BuscarInabilitados(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mocksCacheMiss(redisMock)
 }
 
 func mocksCacheMiss(redisMock *redisPkg.MockCache) {

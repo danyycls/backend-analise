@@ -53,6 +53,7 @@ import (
 	usecaseMunicipal "github.com/danyele/podp/internal/esferas-brasileiras/municipal/usecase"
 
 	usecaseLigacao "github.com/danyele/podp/internal/ligacao-politica/usecase"
+	"github.com/danyele/podp/internal/shared/services"
 	"github.com/danyele/podp/internal/stream"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -228,7 +229,12 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, leitorCSVService)
 	leitorCSVHandler := importacaoHandler.NovoLeitorCSVHandler(leitorCSVUseCase)
 
-	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, opencnpjClient, tcuClient, portalClient)
+	normalizarSvc := services.NovoNormalizarDocumentosService()
+	buscarSvc := services.NovoBuscarLigacaoPoliticaTSEService()
+	verificarTcuSvc := services.NovoVerificarSancoesTCUService(tcuClient)
+	verificarServSvc := services.NovoVerificarServidorPublicoService(portalClient)
+
+	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, normalizarSvc, buscarSvc, verificarTcuSvc, verificarServSvc)
 	handlerLigacao := handlerLigacao.NovoAnalisarLigacaoPoliticaHandler(casoUsoLigacao, redisCache)
 
 	relacoesHandlerBusca := tseHandler.NovoBuscarRelacoesHandler(tseUseCase.NovoBuscarRelacoesUseCase(db))
