@@ -12,6 +12,7 @@ package redis
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -67,4 +68,148 @@ func (m *MockCache) Set(ctx context.Context, chave string, valor any) error {
 func (mr *MockCacheMockRecorder) Set(ctx, chave, valor any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockCache)(nil).Set), ctx, chave, valor)
+}
+
+// SetEx mocks base method.
+func (m *MockCache) SetEx(ctx context.Context, chave string, valor any, ttl time.Duration) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetEx", ctx, chave, valor, ttl)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetEx indicates an expected call of SetEx.
+func (mr *MockCacheMockRecorder) SetEx(ctx, chave, valor, ttl any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetEx", reflect.TypeOf((*MockCache)(nil).SetEx), ctx, chave, valor, ttl)
+}
+
+// SAdd mocks base method.
+func (m *MockCache) SAdd(ctx context.Context, chave string, membros ...string) (int64, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, chave}
+	for _, a := range membros {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SAdd", varargs...)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SAdd indicates an expected call of SAdd.
+func (mr *MockCacheMockRecorder) SAdd(ctx, chave any, membros ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := []any{ctx, chave}
+	for _, a := range membros {
+		varargs = append(varargs, a)
+	}
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SAdd", reflect.TypeOf((*MockCache)(nil).SAdd), varargs...)
+}
+
+// SMembers mocks base method.
+func (m *MockCache) SMembers(ctx context.Context, chave string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SMembers", ctx, chave)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SMembers indicates an expected call of SMembers.
+func (mr *MockCacheMockRecorder) SMembers(ctx, chave any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SMembers", reflect.TypeOf((*MockCache)(nil).SMembers), ctx, chave)
+}
+
+// SInter mocks base method.
+func (m *MockCache) SInter(ctx context.Context, chaves ...string) ([]string, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SInter", varargs...)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SInter indicates an expected call of SInter.
+func (mr *MockCacheMockRecorder) SInter(ctx any, chaves ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SInter", reflect.TypeOf((*MockCache)(nil).SInter), varargs...)
+}
+
+// SUnionStore mocks base method.
+func (m *MockCache) SUnionStore(ctx context.Context, destino string, chaves ...string) (int64, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, destino}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SUnionStore", varargs...)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SUnionStore indicates an expected call of SUnionStore.
+func (mr *MockCacheMockRecorder) SUnionStore(ctx, destino any, chaves ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := []any{ctx, destino}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SUnionStore", reflect.TypeOf((*MockCache)(nil).SUnionStore), varargs...)
+}
+
+// Exists mocks base method.
+func (m *MockCache) Exists(ctx context.Context, chaves ...string) (int64, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Exists", varargs...)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Exists indicates an expected call of Exists.
+func (mr *MockCacheMockRecorder) Exists(ctx any, chaves ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockCache)(nil).Exists), varargs...)
+}
+
+// Del mocks base method.
+func (m *MockCache) Del(ctx context.Context, chaves ...string) (int64, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Del", varargs...)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Del indicates an expected call of Del.
+func (mr *MockCacheMockRecorder) Del(ctx any, chaves ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := []any{ctx}
+	for _, a := range chaves {
+		varargs = append(varargs, a)
+	}
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockCache)(nil).Del), varargs...)
 }

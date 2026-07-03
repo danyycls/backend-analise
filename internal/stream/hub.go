@@ -16,6 +16,8 @@ import (
 	"github.com/danyele/podp/internal/shared/logger"
 	"github.com/danyele/podp/internal/shared/types"
 	ws "github.com/danyele/podp/internal/shared/websocket"
+	anomalia "github.com/danyele/podp/internal/worker/anomalia"
+	anomaliaHandler "github.com/danyele/podp/internal/worker/anomalia/handler"
 )
 
 const (
@@ -37,8 +39,9 @@ type ClientMessage struct {
 }
 
 type Hub struct {
-	orgaoHandler      *handlerPNCP.AnaliseOrgaoPNCPHandler
-	publicacaoHandler *handlerPNCP.AnalisePublicacaoHandler
+	orgaoHandler         *handlerPNCP.AnaliseOrgaoPNCPHandler
+	publicacaoHandler    *handlerPNCP.AnalisePublicacaoHandler
+	anomaliaWorkerHander *anomaliaHandler.AnomaliaWorkerHandler
 
 	despesaPessoalUC   *dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalUseCase
 	despesaCategoriaUC *dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaUseCase
@@ -51,6 +54,7 @@ type Hub struct {
 func NewHub(
 	orgaoHandler *handlerPNCP.AnaliseOrgaoPNCPHandler,
 	publicacaoHandler *handlerPNCP.AnalisePublicacaoHandler,
+	anomaliaWorkerHandler *anomaliaHandler.AnomaliaWorkerHandler,
 	despesaPessoalUC *dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalUseCase,
 	despesaCategoriaUC *dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaUseCase,
 	rreoUC *dadosfinanceiros.EsferaEstadualBuscarRREOUseCase,
@@ -58,13 +62,14 @@ func NewHub(
 	municipioUC *usecaseMunicipal.EsferaMunicipalBuscarDetalhesUseCase,
 ) *Hub {
 	return &Hub{
-		orgaoHandler:       orgaoHandler,
-		publicacaoHandler:  publicacaoHandler,
-		despesaPessoalUC:   despesaPessoalUC,
-		despesaCategoriaUC: despesaCategoriaUC,
-		rreoUC:             rreoUC,
-		recursosFederaisUC: recursosFederaisUC,
-		municipioUC:        municipioUC,
+		orgaoHandler:         orgaoHandler,
+		publicacaoHandler:    publicacaoHandler,
+		anomaliaWorkerHander: anomaliaWorkerHandler,
+		despesaPessoalUC:     despesaPessoalUC,
+		despesaCategoriaUC:   despesaCategoriaUC,
+		rreoUC:               rreoUC,
+		recursosFederaisUC:   recursosFederaisUC,
+		municipioUC:          municipioUC,
 	}
 }
 
@@ -92,6 +97,8 @@ func (h *Hub) Handle(c *gin.Context) {
 		h.streamOrgao(ctx, conn, msg.JobID)
 	case "publicacao_analise":
 		h.streamPublicacao(ctx, conn, msg.JobID)
+	case "anomalia_analise":
+		h.streamAnomalia(ctx, conn, msg.JobID)
 	case "estado_financeiro":
 		if msg.UF == "" || len(msg.UF) != 2 {
 			ws.WriteJSON(conn, StreamMessage{Type: "erro", Data: map[string]string{"erro": "UF invalida"}})
@@ -140,6 +147,28 @@ func (h *Hub) streamPublicacao(ctx context.Context, conn *gorilla.Conn, jobID st
 		case event, ok := <-eventChan:
 			if !ok {
 				ws.WriteJSON(conn, pncp.EventoAnalise{Type: "done"})
+				return
+			}
+			if err := ws.WriteJSON(conn, event); err != nil {
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (h *Hub) streamAnomalia(ctx context.Context, conn *gorilla.Conn, jobID string) {
+	eventChan, exists := h.anomaliaWorkerHander.GetJobChan(jobID)
+	if !exists {
+		ws.WriteJSON(conn, anomalia.WorkerEvento{Type: "error", Message: "job nao encontrado"})
+		return
+	}
+	for {
+		select {
+		case event, ok := <-eventChan:
+			if !ok {
+				ws.WriteJSON(conn, anomalia.WorkerEvento{Type: "done"})
 				return
 			}
 			if err := ws.WriteJSON(conn, event); err != nil {

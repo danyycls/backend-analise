@@ -36,7 +36,7 @@ func (h *AnalisarLigacaoPoliticaHandler) Analisar(c *gin.Context) {
 	}
 
 	raw, _ := json.Marshal(req.Licitacoes)
-	chave := redis.ChaveCache("ligacao-politica", raw)
+	chave := redis.ChaveCache(redis.ChaveLigacaoPolitica, raw)
 
 	var cached usecase.AnalisarLigacaoPoliticaResponse
 	ok, err := h.redis.Get(c.Request.Context(), chave, &cached)

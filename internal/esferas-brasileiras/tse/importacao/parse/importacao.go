@@ -3,6 +3,7 @@ package parse
 import "strings"
 
 const (
+	tipoArquivoConvenioPortal                = "convenio_portal_transparencia"
 	tipoArquivoConsultaCandidato             = "consulta_candidato"
 	tipoArquivoBemCandidato                  = "bem_candidato"
 	tipoArquivoDespesaContratadaCandidato    = "despesa_contratada_candidato"
@@ -19,6 +20,8 @@ func IdentificarTipoArquivo(nomeArquivo string) (string, bool) {
 	nome := strings.ToLower(nomeArquivo)
 
 	switch {
+	case strings.HasSuffix(nome, "_convenios.csv"):
+		return tipoArquivoConvenioPortal, true
 	case strings.HasPrefix(nome, "consulta_cand_"):
 		return tipoArquivoConsultaCandidato, true
 	case strings.HasPrefix(nome, "bem_candidato_"):
@@ -46,6 +49,8 @@ func IdentificarTipoArquivo(nomeArquivo string) (string, bool) {
 
 func PrioridadeTipoArquivo(tipo string) int {
 	switch tipo {
+	case tipoArquivoConvenioPortal:
+		return 0
 	case tipoArquivoConsultaCandidato:
 		return 1
 	case tipoArquivoBemCandidato:

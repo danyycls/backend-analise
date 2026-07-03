@@ -22,6 +22,7 @@ type DadosImportacao struct {
 	ReceitasDoadorOriginarioCandidato       []*types.ReceitaDoadorOriginarioCandidato
 	ReceitasDoadorOriginarioOrgaoPartidario []*types.ReceitaDoadorOriginarioOrgaoPartidario
 	BensCandidato                           []*types.BemCandidato
+	Convenios                               []*types.Convenio
 }
 
 func NovoDadosImportacao() *DadosImportacao {

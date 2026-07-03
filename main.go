@@ -15,12 +15,13 @@ import (
 )
 
 func main() {
-	log := logger.New("Main: main: ListenAndServe")
+	log := logger.New("Main")
+	log.Info("build info", "version", "dev", "commit", "none", "data", "2026-06-28")
+
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Minute)
 
 	pool, err := database.NovaPool(ctx, database.ConfigFromEnv())
 	if err != nil {
-		log := logger.New("Main: main: NovaPool")
 		log.Fatal("erro ao criar pgx pool", "erro", err)
 	}
 	defer cancelar()
@@ -29,7 +30,7 @@ func main() {
 	poolDB := database.NewPoolDB(pool)
 
 	if err := migracao.AplicarSQLPool(ctx, pool, "internal/shared/migrations/schema"); err != nil {
-		logger.New("Main: main: AplicarSQLPool").Error("erro ao aplicar migrations", "erro", err)
+		log.Error("erro ao aplicar migrations", "erro", err)
 		os.Exit(1) //nolint:gocritic
 	}
 

@@ -62,6 +62,13 @@ func garantirTabelaStaging(ctx context.Context, tx pgx.Tx, cfg tableConfig) erro
 	return nil
 }
 
+func strNil(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 func formatKey(v any) string {
 	switch val := v.(type) {
 	case [16]byte:

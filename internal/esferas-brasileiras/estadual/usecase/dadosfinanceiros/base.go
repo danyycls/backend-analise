@@ -57,7 +57,7 @@ func (b *BaseFinanceiroUseCase) anoAlvo() int64 {
 func (b *BaseFinanceiroUseCase) buscarRGF(ctx context.Context, params siconfiClient.RGFParams) ([]siconfiClient.RGFItem, error) {
 	log := logger.New("Estadual: Financeiro: RGF")
 	raw, _ := json.Marshal(params)
-	cacheKey := redis.ChaveCache("estadual-rgf", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveEstadualRGF, raw)
 
 	var cached []siconfiClient.RGFItem
 	if ok, err := b.redisCache.Get(ctx, cacheKey, &cached); err != nil {
@@ -84,7 +84,7 @@ func (b *BaseFinanceiroUseCase) buscarRGF(ctx context.Context, params siconfiCli
 func (b *BaseFinanceiroUseCase) buscarRREO(ctx context.Context, params siconfiClient.RREOParams) ([]siconfiClient.RREOItem, error) {
 	log := logger.New("Estadual: Financeiro: RREO")
 	raw, _ := json.Marshal(params)
-	cacheKey := redis.ChaveCache("estadual-rreo", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveEstadualRREO, raw)
 
 	var cached []siconfiClient.RREOItem
 	if ok, err := b.redisCache.Get(ctx, cacheKey, &cached); err != nil {

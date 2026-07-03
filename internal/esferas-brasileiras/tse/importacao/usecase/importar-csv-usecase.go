@@ -229,6 +229,8 @@ type leituraOrdenada struct {
 func prioridadeDiretorio(nome string) int {
 	d := strings.ToLower(nome)
 	switch {
+	case strings.Contains(d, "portaltransparencia"):
+		return 0
 	case strings.Contains(d, "consulta_cand"):
 		return 1
 	case strings.Contains(d, "bem_candidato"):
@@ -583,6 +585,7 @@ func contarRegistrosEstimados(d *tipos.DadosImportacao) int {
 		return 0
 	}
 	total := 0
+	total += len(d.Convenios)
 	total += len(d.DespesasCandidato)
 	total += len(d.DespesasOrgaoPartidario)
 	total += len(d.ReceitasCandidato)

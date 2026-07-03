@@ -8,6 +8,8 @@ import (
 
 func ProcessarArquivo(ctx context.Context, processador *ProcessadorLeitorCSV, arquivo tipos.ArquivoImportacao) (int, error) {
 	switch arquivo.Tipo {
+	case tipoArquivoConvenioPortal:
+		return processador.ProcessarConvenioPortal(ctx, arquivo.Caminho)
 	case tipoArquivoConsultaCandidato:
 		return processador.ProcessarConsultaCandidato(ctx, arquivo.Caminho)
 	case tipoArquivoBemCandidato:
@@ -31,6 +33,10 @@ func ProcessarArquivo(ctx context.Context, processador *ProcessadorLeitorCSV, ar
 	default:
 		return 0, fmt.Errorf("tipo de arquivo nao suportado: %s", arquivo.Tipo)
 	}
+}
+
+func (p *ProcessadorLeitorCSV) ProcessarConvenioPortal(ctx context.Context, caminho string) (int, error) {
+	return p.processarConvenioPortal(ctx, caminho)
 }
 
 func (p *ProcessadorLeitorCSV) ProcessarConsultaCandidato(ctx context.Context, caminho string) (int, error) {

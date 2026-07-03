@@ -13,6 +13,7 @@ import (
 
 // ObterUFDoNomeArquivo extrai a UF (sigla) do nome do arquivo CSV
 // Ex: "prestacao_contas_SP.csv" -> "SP"
+// Para arquivos nacionais (sem UF no nome), retorna "BR".
 func ObterUFDoNomeArquivo(nome string) string {
 	nomeSemExt := strings.TrimSuffix(nome, filepath.Ext(nome))
 	partes := strings.Split(nomeSemExt, "_")
@@ -21,9 +22,21 @@ func ObterUFDoNomeArquivo(nome string) string {
 		partes = partes[:len(partes)-1]
 	}
 	if len(partes) == 0 {
-		return "DESCONHECIDO"
+		return "BR"
 	}
-	return strings.ToUpper(partes[len(partes)-1])
+	sigla := strings.ToUpper(partes[len(partes)-1])
+	if !ufsBrasil[sigla] {
+		return "BR"
+	}
+	return sigla
+}
+
+var ufsBrasil = map[string]bool{
+	"AC": true, "AL": true, "AP": true, "AM": true, "BA": true, "CE": true,
+	"DF": true, "ES": true, "GO": true, "MA": true, "MT": true, "MS": true,
+	"MG": true, "PA": true, "PB": true, "PR": true, "PE": true, "PI": true,
+	"RJ": true, "RN": true, "RS": true, "RO": true, "RR": true, "SC": true,
+	"SP": true, "SE": true, "TO": true,
 }
 
 // LimparDadosAposPersistencia libera memoria dos registros transacionais
@@ -33,6 +46,7 @@ func LimparDadosAposPersistencia(dados *tipos.DadosImportacao) {
 		return
 	}
 
+	dados.Convenios = nil
 	dados.DespesasCandidato = nil
 	dados.DespesasOrgaoPartidario = nil
 	dados.ReceitasCandidato = nil
@@ -48,6 +62,7 @@ func LimparTodosDados(dados *tipos.DadosImportacao) {
 		return
 	}
 
+	dados.Convenios = nil
 	dados.Eleicoes = nil
 	dados.UnidadesEleitorais = nil
 	dados.Partidos = nil

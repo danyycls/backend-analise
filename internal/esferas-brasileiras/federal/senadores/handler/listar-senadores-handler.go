@@ -22,7 +22,7 @@ func NovoListarSenadoresHandler(useCase *usecase.ListarSenadoresUseCase, redis *
 
 func (h *ListarSenadoresHandler) Listar(c *gin.Context) {
 	log := logger.New("Senadores: Handler: Listar")
-	chave := redis.ChaveCache("senado-senadores", []byte("all"))
+	chave := redis.ChaveCache(redis.ChaveSenadoSenadores, []byte("all"))
 
 	var cached []interface{}
 	ok, err := h.redis.Get(c.Request.Context(), chave, &cached)

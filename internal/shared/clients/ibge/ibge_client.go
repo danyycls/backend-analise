@@ -114,6 +114,9 @@ func (c *IBGEClient) ListarMunicipiosCompleto(ctx context.Context) ([]types.Muni
 }
 
 type populacaoV3 struct {
+	ID         string `json:"id"`
+	Variavel   string `json:"variavel"`
+	Unidade    string `json:"unidade"`
 	Resultados []struct {
 		Series []struct {
 			Localidade struct {
@@ -124,13 +127,9 @@ type populacaoV3 struct {
 	} `json:"resultados"`
 }
 
-type populacaoV2 struct {
-	Resultados []struct {
-		Series [][]interface{} `json:"serie"`
-	} `json:"resultados"`
-}
-
 func (c *IBGEClient) BuscarPopulacao(ctx context.Context, municipioIDs []int) (map[int]int64, error) {
+	log := logger.New("Clients: Client: BuscarPopulacao")
+
 	if len(municipioIDs) == 0 {
 		return map[int]int64{}, nil
 	}
@@ -143,6 +142,7 @@ func (c *IBGEClient) BuscarPopulacao(ctx context.Context, municipioIDs []int) (m
 		if end > len(municipioIDs) {
 			end = len(municipioIDs)
 		}
+
 		batch := municipioIDs[i:end]
 
 		ids := make([]string, len(batch))
@@ -152,80 +152,160 @@ func (c *IBGEClient) BuscarPopulacao(ctx context.Context, municipioIDs []int) (m
 
 		localidades := "N6[" + strings.Join(ids, ",") + "]"
 
-		// Tenta tabela nova (6579, var 9324) — formato v3: series[].localidade + series[].serie{ano: valor}
-		url := fmt.Sprintf("%s/6579/periods/-6/variaveis/9324?localidades=%s", c.agregadosURL, localidades)
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
+		if c.extrairPopulacaoEstimada(ctx, log, localidades, resultado) {
 			continue
 		}
 
-		resp, err := c.client.Do(req)
-		if err != nil || resp.StatusCode != 200 {
-			if resp != nil {
-				resp.Body.Close()
-			}
-			// Fallback: tenta tabela antiga (4700, var 93)
-			url = fmt.Sprintf("%s/4700/periods/-6/variaveis/93?localidades=%s", c.agregadosURL, localidades)
-			req, _ = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-			resp, err = c.client.Do(req)
-			if err != nil || resp.StatusCode != 200 {
-				if resp != nil {
-					resp.Body.Close()
-				}
-				continue
-			}
+		c.extrairPopulacaoCenso2022(ctx, log, localidades, resultado)
+	}
 
-			var v2 []populacaoV2
-			if err := json.NewDecoder(resp.Body).Decode(&v2); err != nil {
-				resp.Body.Close()
-				continue
-			}
-			resp.Body.Close()
+	log.Info(
+		"BuscarPopulacao concluido",
+		"municipios_com_populacao", len(resultado),
+		"total_solicitado", len(municipioIDs),
+	)
 
-			for idx, item := range v2 {
-				if len(item.Resultados) > 0 && len(item.Resultados[0].Series) > 0 {
-					serie := item.Resultados[0].Series[0]
-					if len(serie) > 1 {
-						s := fmt.Sprintf("%v", serie[1])
-						s = strings.ReplaceAll(s, ".", "")
-						s = strings.TrimSpace(s)
-						if pop, err := strconv.ParseInt(s, 10, 64); err == nil {
-							resultado[batch[idx]] = pop
-						}
-					}
-				}
-			}
-			continue
-		}
+	return resultado, nil
+}
 
-		var v3 []populacaoV3
-		if err := json.NewDecoder(resp.Body).Decode(&v3); err != nil {
-			resp.Body.Close()
-			continue
-		}
-		resp.Body.Close()
+func (c *IBGEClient) extrairPopulacaoEstimada(
+	ctx context.Context,
+	log *logger.Logger,
+	localidades string,
+	resultado map[int]int64,
+) bool {
 
-		for _, item := range v3 {
-			if len(item.Resultados) == 0 || len(item.Resultados[0].Series) == 0 {
-				continue
-			}
-			for _, s := range item.Resultados[0].Series {
+	url := fmt.Sprintf(
+		"%s/6579/periods/-6/variaveis/9324?localidades=%s",
+		c.agregadosURL,
+		localidades,
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		log.Warn("IBGE estimativa: erro criar requisicao", "erro", err)
+		return false
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		log.Warn("IBGE estimativa: erro na requisicao", "erro", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Warn("IBGE estimativa: status inesperado", "status", resp.StatusCode)
+		return false
+	}
+
+	var dados []populacaoV3
+	if err := json.NewDecoder(resp.Body).Decode(&dados); err != nil {
+		log.Warn("IBGE estimativa: erro decode", "erro", err)
+		return false
+	}
+
+	for _, item := range dados {
+		for _, r := range item.Resultados {
+			for _, s := range r.Series {
 				locID, err := strconv.Atoi(s.Localidade.ID)
 				if err != nil {
 					continue
 				}
-				// pega o valor do ano mais recente
-				for _, v := range s.Serie {
-					v = strings.TrimSpace(v)
-					if pop, err := strconv.ParseInt(v, 10, 64); err == nil {
-						resultado[locID] = pop
+
+				var (
+					maiorAno int
+					pop      int64
+				)
+
+				for anoStr, valor := range s.Serie {
+					ano, err := strconv.Atoi(anoStr)
+					if err != nil {
+						continue
 					}
-					break
+
+					valor = strings.ReplaceAll(valor, ".", "")
+					valor = strings.TrimSpace(valor)
+
+					p, err := strconv.ParseInt(valor, 10, 64)
+					if err != nil {
+						continue
+					}
+
+					if ano > maiorAno {
+						maiorAno = ano
+						pop = p
+					}
+				}
+
+				if pop > 0 {
+					resultado[locID] = pop
 				}
 			}
 		}
 	}
 
-	return resultado, nil
+	return len(resultado) > 0
+}
+
+func (c *IBGEClient) extrairPopulacaoCenso2022(
+	ctx context.Context,
+	log *logger.Logger,
+	localidades string,
+	resultado map[int]int64,
+) {
+
+	url := fmt.Sprintf(
+		"%s/8395/periods/2022/variaveis/12494?localidades=%s",
+		c.agregadosURL,
+		localidades,
+	)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		log.Warn("IBGE censo 2022: erro criar requisicao", "erro", err)
+		return
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		log.Warn("IBGE censo 2022: erro na requisicao", "erro", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Warn("IBGE censo 2022: status inesperado", "status", resp.StatusCode)
+		return
+	}
+
+	var dados []populacaoV3
+	if err := json.NewDecoder(resp.Body).Decode(&dados); err != nil {
+		log.Warn("IBGE censo 2022: erro decode", "erro", err)
+		return
+	}
+
+	for _, item := range dados {
+		for _, r := range item.Resultados {
+			for _, s := range r.Series {
+				locID, err := strconv.Atoi(s.Localidade.ID)
+				if err != nil {
+					continue
+				}
+
+				for _, valor := range s.Serie {
+					valor = strings.ReplaceAll(valor, ".", "")
+					valor = strings.TrimSpace(valor)
+
+					pop, err := strconv.ParseInt(valor, 10, 64)
+					if err != nil {
+						continue
+					}
+
+					resultado[locID] = pop
+					break
+				}
+			}
+		}
+	}
 }

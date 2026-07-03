@@ -28,6 +28,9 @@ import (
 	tseUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
 	handlerLigacao "github.com/danyele/podp/internal/ligacao-politica/handler"
 
+	anomaliaHandler "github.com/danyele/podp/internal/worker/anomalia/handler"
+	anomaliaUseCase "github.com/danyele/podp/internal/worker/anomalia/usecase"
+
 	clientDeputados "github.com/danyele/podp/internal/shared/clients/deputados"
 	clientPNCP "github.com/danyele/podp/internal/shared/clients/pncp"
 	clientPortal "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
@@ -37,6 +40,7 @@ import (
 	"github.com/danyele/podp/internal/shared/clients/ibge"
 	"github.com/danyele/podp/internal/shared/clients/opencnpj"
 	"github.com/danyele/podp/internal/shared/clients/siconfi"
+	"github.com/danyele/podp/internal/shared/mongodb"
 
 	usecaseEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase"
 	dadosfinanceiros "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase/dadosfinanceiros"
@@ -200,10 +204,17 @@ type App struct {
 
 	BuscarEmendasHandler          *handlerPortalEmendas.BuscarEmendasHandler
 	BuscarDocumentosEmendaHandler *handlerPortalEmendas.BuscarDocumentosEmendaHandler
+
+	MongoClient             mongodb.Client
+	GerarDescricaoSvc       services.GerarDescricaoVinculoService
+	AnomaliaWorkerHandler   *anomaliaHandler.AnomaliaWorkerHandler
+	AnomaliaConsultaHandler *anomaliaHandler.AnomaliaConsultaHandler
+
+	ConvenioHandler *handlerPNCP.ConsultaConvenioHandler
 }
 
 func NovoApp(db database.DB, diretorioCSV string) *App {
-	log := logger.New("App: DI: NovoPool")
+	log := logger.New("App")
 
 	pncpClient := clientPNCP.NovoPNCPClient(os.Getenv("PNCP_BASE_URL"))
 	opencnpjClient := opencnpj.NovoOpenCNPJClient(os.Getenv("OPENCNPJ_BASE_URL"))
@@ -213,6 +224,10 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	senadoClient := clientSenadores.NovoSenadoClient(os.Getenv("SENADO_BASE_URL"))
 	siconfiClient := siconfi.NovoSICONFIClient(os.Getenv("SICONFI_BASE_URL"))
 	redisCache := redis.NovoRedisCache()
+	if err := redisCache.Ping(context.Background()); err != nil {
+		log.Fatal("redis indisponivel", "erro", err)
+	}
+	licitacaoCache := redis.NovoLicitacaoCache(redisCache)
 
 	portalClient := clientPortal.NovoPortalTransparenciaClient(
 		os.Getenv("PORTAL_TRANSPARENCIA_API_KEY"),
@@ -233,9 +248,16 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	buscarSvc := services.NovoBuscarLigacaoPoliticaTSEService()
 	verificarTcuSvc := services.NovoVerificarSancoesTCUService(tcuClient)
 	verificarServSvc := services.NovoVerificarServidorPublicoService(portalClient)
+	verificarPessoaPublicaSvc := services.NovoVerificarPessoaPublicaService(portalClient)
+	gerarDescricaoSvc := services.NovoGerarDescricaoVinculoService()
 
 	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, normalizarSvc, buscarSvc, verificarTcuSvc, verificarServSvc)
 	handlerLigacao := handlerLigacao.NovoAnalisarLigacaoPoliticaHandler(casoUsoLigacao, redisCache)
+
+	mongoClient, errMongo := mongodb.NovoMongoClient(context.Background())
+	if errMongo != nil {
+		log.Fatal("mongodb indisponivel", "erro", errMongo)
+	}
 
 	relacoesHandlerBusca := tseHandler.NovoBuscarRelacoesHandler(tseUseCase.NovoBuscarRelacoesUseCase(db))
 	relacoesHandlerEntidade := tseHandler.NovoConsultarEntidadeHandler(tseUseCase.NovoConsultarEntidadeUseCase(db))
@@ -245,13 +267,31 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	buscarFornecedorUC := tseUseCase.NovoBuscarFornecedorUseCase(db)
 
 	pncpAnaliseOrgaoHandler := handlerPNCP.NovoAnaliseOrgaoPNCPHandler(
-		usecasePNCP.NovoConsultaCNPJOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache),
+		usecasePNCP.NovoConsultaCNPJOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache),
 		redisCache,
 	)
 	pncpAnalisePubHandler := handlerPNCP.NovoAnalisePublicacaoHandler(
-		usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache),
+		usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache),
 		redisCache,
 	)
+
+	anomaliaWorkerUC := anomaliaUseCase.NovoAnaliseAnomaliaWorkerUseCase(
+		normalizarSvc,
+		buscarSvc,
+		verificarTcuSvc,
+		verificarServSvc,
+		verificarPessoaPublicaSvc,
+		gerarDescricaoSvc,
+		db,
+		mongoClient,
+	)
+	anomaliaWorkerHandler := anomaliaHandler.NovoAnomaliaWorkerHandler(anomaliaWorkerUC)
+
+	anomaliaConsutaUC := anomaliaUseCase.NovoAnomaliaConsultaUseCase(mongoClient)
+	anomaliaConsultaHandler := anomaliaHandler.NovoAnomaliaConsultaHandler(anomaliaConsutaUC)
+
+	convenioUC := usecasePNCP.NovoConsultaConvenioUseCase(db)
+	convenioHandler := handlerPNCP.NovoConsultaConvenioHandler(convenioUC)
 
 	contasIrregularesUC := usecaseTCU.NovoContasIrregularesUseCase(tcuClient)
 	finsEleitoraisUC := usecaseTCU.NovoFinsEleitoraisUseCase(tcuClient)
@@ -393,7 +433,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 		AnaliseOrgaoPNCPHandler:   pncpAnaliseOrgaoHandler,
 		AnalisePublicacaoHandler:  pncpAnalisePubHandler,
-		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache)),
+		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache)),
 		ListarMunicipiosHandler:   handlerPNCP.NovoListarMunicipiosHandler(ibgeClient),
 
 		HandlerBuscaRelacoes:    relacoesHandlerBusca,
@@ -478,6 +518,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		WSHub: stream.NewHub(
 			pncpAnaliseOrgaoHandler,
 			pncpAnalisePubHandler,
+			anomaliaWorkerHandler,
 			despesaPessoalUC,
 			despesaCategoriaUC,
 			rreoUC,
@@ -520,5 +561,12 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 		BuscarEmendasHandler:          handlerPortalEmendas.NovoBuscarEmendasHandler(emendasUC),
 		BuscarDocumentosEmendaHandler: handlerPortalEmendas.NovoBuscarDocumentosEmendaHandler(documentosEmendaUC),
+
+		MongoClient:             mongoClient,
+		GerarDescricaoSvc:       gerarDescricaoSvc,
+		AnomaliaWorkerHandler:   anomaliaWorkerHandler,
+		AnomaliaConsultaHandler: anomaliaConsultaHandler,
+
+		ConvenioHandler: convenioHandler,
 	}
 }

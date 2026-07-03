@@ -22,14 +22,16 @@ type ConsultaCNPJOrgaoPNCPUseCase struct {
 	pncpClient     *pncp.PNCPClient
 	opencnpjClient *opencnpj.OpenCNPJClient
 	redis          *redis.RedisCache
+	licitacaoCache *redis.LicitacaoCache
 	httpClient     *http.Client
 }
 
-func NovoConsultaCNPJOrgaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache) *ConsultaCNPJOrgaoPNCPUseCase {
+func NovoConsultaCNPJOrgaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache, licitacaoCache *redis.LicitacaoCache) *ConsultaCNPJOrgaoPNCPUseCase {
 	return &ConsultaCNPJOrgaoPNCPUseCase{
 		pncpClient:     pncp,
 		opencnpjClient: opencnpj,
 		redis:          redis,
+		licitacaoCache: licitacaoCache,
 		httpClient:     &http.Client{Timeout: 15 * time.Second},
 	}
 }
@@ -119,19 +121,21 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) executar(ctx context.Context, cnpjOrgao, 
 	cnpj := utils.NormalizarCNPJ(cnpjOrgao)
 
 	cacheParams := map[string]interface{}{
-		"cnpj":        cnpj,
-		"dataInicial": dataInicial,
-		"dataFinal":   dataFinal,
+		"tipo":                        "orgao",
+		"valor":                       cnpj,
+		"dataInicial":                 dataInicial,
+		"dataFinal":                   dataFinal,
+		"codigoModalidadeContratacao": "",
 	}
 	raw, _ := json.Marshal(cacheParams)
-	cacheKey := redis.ChaveCache("pncp-orgao-executar", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
 
-	var cached pncp.AnaliseResultado
+	var cached []*pncp.AnaliseResultado
 	if ok, err := u.redis.Get(ctx, cacheKey, &cached); err != nil {
 		log.Warn("cache indisponivel", "erro", err)
-	} else if ok {
+	} else if ok && len(cached) > 0 {
 		log.Info("cache hit", "cnpj", cnpj)
-		return &cached, nil
+		return cached[0], nil
 	}
 
 	log.Info("iniciando analise orgao", "cnpj", cnpj, "data_inicial", dataInicial, "data_final", dataFinal)
@@ -167,7 +171,7 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) executar(ctx context.Context, cnpjOrgao, 
 		Contratos: contratosDTO,
 	}
 
-	if err := u.redis.Set(ctx, cacheKey, result); err != nil {
+	if err := u.redis.Set(ctx, cacheKey, []*pncp.AnaliseResultado{result}); err != nil {
 		log.Warn("cache indisponivel", "erro", err)
 	}
 
@@ -190,7 +194,7 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) buscarContratos(ctx context.Context, cnpj
 			"tamanho":     tamanho,
 		}
 		raw, _ := json.Marshal(cacheParams)
-		cacheKey := redis.ChaveCache("pncp-buscar-contratos", raw)
+		cacheKey := redis.ChaveCache(redis.ChavePNCBuscarContratos, raw)
 
 		var cached []pncp.Contrato
 		cacheHit := false
@@ -213,6 +217,10 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) buscarContratos(ctx context.Context, cnpj
 			}
 			if setErr := u.redis.Set(ctx, cacheKey, resp); setErr != nil {
 				log.Warn("cache indisponivel", "erro", setErr)
+			}
+
+			if idxErr := u.licitacaoCache.IndexarContratos(ctx, resp); idxErr != nil {
+				log.Warn("erro ao indexar contratos", "erro", idxErr)
 			}
 		}
 

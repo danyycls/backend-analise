@@ -67,7 +67,7 @@ func (h *AnalisePublicacaoHandler) AnalisePublicacao(c *gin.Context) {
 		"codigoModalidadeContratacao": req.CodigoModalidadeContratacao,
 	}
 	raw, _ := json.Marshal(params)
-	chave := redis.ChaveCache("publicacao-analise", raw)
+	chave := redis.ChaveCache(redis.ChavePublicacaoAnalise, raw)
 
 	var cached []*pncp.AnaliseResultado
 	cacheHit := false
@@ -217,4 +217,8 @@ func (h *AnalisePublicacaoHandler) GetJobChan(jobID string) (<-chan pncp.EventoA
 		return nil, false
 	}
 	return job.eventChan, true
+}
+
+func (h *AnalisePublicacaoHandler) PublicacaoUseCase() *usecase.ConsultaPublicacaoPNCPUseCase {
+	return h.useCase
 }

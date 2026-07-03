@@ -17,6 +17,7 @@ func MontarDespesaCandidatoDetalhada(ctx context.Context, repo *repositorio.Repo
 		cand, err := repo.CandidatoBuscarPorID(ctx, d.CandidatoID)
 		if err == nil && cand != nil {
 			res.SQCandidato = cand.SQCandidato
+			res.Candidato = cand
 		}
 	}
 	if d.PrestacaoContasID != uuid.Nil {
@@ -41,6 +42,7 @@ func MontarDespesaOrgaoPartidarioDetalhada(ctx context.Context, repo *repositori
 		if err == nil && part != nil {
 			res.PartidoNumero = part.Numero
 			res.PartidoNome = part.Nome
+			res.Partido = part
 		}
 	}
 	res.DescricaoDeVinculo = montarDescricaoDespesaOrgaoPartidario(d, res.PartidoNome)

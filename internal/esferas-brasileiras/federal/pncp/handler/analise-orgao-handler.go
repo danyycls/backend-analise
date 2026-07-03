@@ -62,7 +62,7 @@ func (h *AnaliseOrgaoPNCPHandler) AnaliseOrgaoPNCP(c *gin.Context) {
 		"dataFinal":   req.DataFinal,
 	}
 	raw, _ := json.Marshal(params)
-	chave := redis.ChaveCache("orgao-analise", raw)
+	chave := redis.ChaveCache(redis.ChaveOrgaoAnalise, raw)
 
 	var cached []*pncp.AnaliseResultado
 	cacheHit := false
@@ -175,4 +175,8 @@ func (h *AnaliseOrgaoPNCPHandler) GetJobChan(jobID string) (<-chan pncp.EventoAn
 		return nil, false
 	}
 	return job.eventChan, true
+}
+
+func (h *AnaliseOrgaoPNCPHandler) OrgaoUseCase() *usecase.ConsultaCNPJOrgaoPNCPUseCase {
+	return h.useCase
 }

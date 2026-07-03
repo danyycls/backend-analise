@@ -76,7 +76,7 @@ func (u *AnalisarLigacaoPoliticaUseCase) normalizarDocumentos(
 				Origem:    "socio",
 			})
 			if dv != nil {
-				vl.Documentos = append(vl.Documentos, dv.DocumentoVinculo)
+				vl.DocumentosVinculos = append(vl.DocumentosVinculos, dv.DocumentoVinculo)
 			}
 		}
 		vl.Socios = sociosOut
@@ -87,7 +87,7 @@ func (u *AnalisarLigacaoPoliticaUseCase) normalizarDocumentos(
 			Origem:    "principal",
 		})
 		if dv != nil {
-			vl.Documentos = append(vl.Documentos, dv.DocumentoVinculo)
+			vl.DocumentosVinculos = append(vl.DocumentosVinculos, dv.DocumentoVinculo)
 		}
 
 		resultados = append(resultados, vl)
@@ -102,8 +102,8 @@ func (u *AnalisarLigacaoPoliticaUseCase) buscarLigacoesTSE(
 	resultados []domain.VinculoLicitacao,
 ) {
 	for li := range resultados {
-		for di := range resultados[li].Documentos {
-			doc := &resultados[li].Documentos[di]
+		for di := range resultados[li].DocumentosVinculos {
+			doc := &resultados[li].DocumentosVinculos[di]
 			vinculos, _ := u.buscarLigacaoTseSvc.Executar(ctx, repo, services.BuscarLigacaoPoliticaTSEInput{
 				DocumentoNormalizado: doc.DocumentoNormalizado,
 				Nome:                 doc.Nome,
@@ -161,7 +161,7 @@ func coletarDocumentosNormalizados(resultados []domain.VinculoLicitacao) []strin
 
 	documentos := make([]string, 0, len(resultados)*2)
 	for _, r := range resultados {
-		for _, d := range r.Documentos {
+		for _, d := range r.DocumentosVinculos {
 			if len(d.DocumentoNormalizado) >= 3 {
 				documentos = append(documentos, d.DocumentoNormalizado)
 			}
@@ -179,11 +179,11 @@ func anexarVinculosPorDocumento(
 	}
 
 	for li := range resultados {
-		for di := range resultados[li].Documentos {
-			doc := resultados[li].Documentos[di].DocumentoNormalizado
+		for di := range resultados[li].DocumentosVinculos {
+			doc := resultados[li].DocumentosVinculos[di].DocumentoNormalizado
 			if v, ok := vinculos[doc]; ok {
-				resultados[li].Documentos[di].Vinculos = append(
-					resultados[li].Documentos[di].Vinculos, v...,
+				resultados[li].DocumentosVinculos[di].Vinculos = append(
+					resultados[li].DocumentosVinculos[di].Vinculos, v...,
 				)
 			}
 		}

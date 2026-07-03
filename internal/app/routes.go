@@ -270,5 +270,19 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/portal-transparencia/emendas/documentos/:codigo", app.BuscarDocumentosEmendaHandler.BuscarDocumentos)
 	}
 
+	if app.AnomaliaWorkerHandler != nil {
+		roteador.POST("/worker/anomalia/iniciar", app.AnomaliaWorkerHandler.Iniciar)
+		roteador.POST("/worker/anomalia/parar/:jobId", app.AnomaliaWorkerHandler.Parar)
+		roteador.GET("/worker/anomalia/progression/:jobId", app.AnomaliaWorkerHandler.Progression)
+	}
+
+	if app.AnomaliaConsultaHandler != nil {
+		roteador.GET("/anomalias", app.AnomaliaConsultaHandler.Listar)
+	}
+
+	if app.ConvenioHandler != nil {
+		roteador.GET("/convenios", app.ConvenioHandler.Listar)
+	}
+
 	return roteador
 }

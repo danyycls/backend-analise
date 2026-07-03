@@ -162,10 +162,14 @@ func MergeDados(dst, src *tipos.DadosImportacao) {
 	if len(src.ReceitasDoadorOriginarioOrgaoPartidario) > 0 {
 		dst.ReceitasDoadorOriginarioOrgaoPartidario = append(dst.ReceitasDoadorOriginarioOrgaoPartidario, src.ReceitasDoadorOriginarioOrgaoPartidario...)
 	}
+	if len(src.Convenios) > 0 {
+		dst.Convenios = append(dst.Convenios, src.Convenios...)
+	}
 	if len(src.BensCandidato) > 0 {
 		dst.BensCandidato = append(dst.BensCandidato, src.BensCandidato...)
 	}
 
+	src.Convenios = nil
 	src.Eleicoes = nil
 	src.UnidadesEleitorais = nil
 	src.Partidos = nil
@@ -241,10 +245,14 @@ func MergeDadosTransacionais(dst, src *tipos.DadosImportacao) {
 	if len(src.ReceitasDoadorOriginarioOrgaoPartidario) > 0 {
 		dst.ReceitasDoadorOriginarioOrgaoPartidario = append(dst.ReceitasDoadorOriginarioOrgaoPartidario, src.ReceitasDoadorOriginarioOrgaoPartidario...)
 	}
+	if len(src.Convenios) > 0 {
+		dst.Convenios = append(dst.Convenios, src.Convenios...)
+	}
 	if len(src.BensCandidato) > 0 {
 		dst.BensCandidato = append(dst.BensCandidato, src.BensCandidato...)
 	}
 
+	src.Convenios = nil
 	src.Fornecedores = nil
 	src.Doadores = nil
 	src.Prestacoes = nil

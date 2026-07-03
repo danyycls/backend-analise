@@ -16,13 +16,15 @@ type ConsultaPublicacaoPNCPUseCase struct {
 	pncpClient     *pncp.PNCPClient
 	opencnpjClient *opencnpj.OpenCNPJClient
 	redis          *redis.RedisCache
+	licitacaoCache *redis.LicitacaoCache
 }
 
-func NovoConsultaPublicacaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache) *ConsultaPublicacaoPNCPUseCase {
+func NovoConsultaPublicacaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache, licitacaoCache *redis.LicitacaoCache) *ConsultaPublicacaoPNCPUseCase {
 	return &ConsultaPublicacaoPNCPUseCase{
 		pncpClient:     pncp,
 		opencnpjClient: opencnpj,
 		redis:          redis,
+		licitacaoCache: licitacaoCache,
 	}
 }
 
@@ -44,7 +46,7 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 		"codigoModalidadeContratacao": codigoModalidade,
 	}
 	raw, _ := json.Marshal(cacheParams)
-	cacheKey := redis.ChaveCache("pncp-publicacao-buscar", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
 
 	var cached []*pncp.AnaliseResultado
 	if ok, err := u.redis.Get(ctx, cacheKey, &cached); err != nil {
@@ -54,6 +56,17 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 		return cached, nil
 	}
 
+	contratosCache, encontrados, err := u.licitacaoCache.BuscarPorFiltros(ctx, tipo, valor, dataInicial, dataFinal)
+	if err == nil && encontrados {
+		log.Info("entity cache hit", "tipo", tipo, "valor", valor, "contratos", len(contratosCache))
+		resultados, err := u.montarResultados(ctx, contratosCache, dataInicial, dataFinal)
+		if err != nil {
+			log.Warn("erro ao montar resultados do cache", "erro", err)
+		} else {
+			return resultados, nil
+		}
+	}
+
 	items, paginas := u.buscarTodasPaginas(ctx, tipo, valor, dataInicial, dataFinal, codigoModalidade)
 	if paginasErro != nil {
 		*paginasErro = paginas
@@ -61,13 +74,28 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 
 	log.Info("total de itens", "total", len(items))
 
-	fornecedoresMap := u.extrairFornecedores(items)
+	resultados, err := u.montarResultados(ctx, items, dataInicial, dataFinal)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := u.redis.Set(ctx, cacheKey, resultados); err != nil {
+		log.Warn("cache indisponivel", "erro", err)
+	}
+
+	return resultados, nil
+}
+
+func (u *ConsultaPublicacaoPNCPUseCase) montarResultados(ctx context.Context, contratos []pncp.Contrato, dataInicial, dataFinal string) ([]*pncp.AnaliseResultado, error) {
+	log := logger.New("PNCP: UseCase: montarResultados")
+
+	fornecedoresMap := u.extrairFornecedores(contratos)
 	log.Info("fornecedores unicos", "total", len(fornecedoresMap))
 
 	enrichedFornecedores := u.enriquecerFornecedores(ctx, fornecedoresMap)
-	items = u.montarContratosDTO(items, enrichedFornecedores)
+	contratos = u.montarContratosDTO(contratos, enrichedFornecedores)
 
-	grupos := u.agruparPorOrgao(items)
+	grupos := u.agruparPorOrgao(contratos)
 	log.Info("grupos por orgao", "total", len(grupos))
 
 	fornecedoresContados := make(map[string]struct{})
@@ -112,10 +140,6 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscar(ctx context.Context, tipo, valor,
 		})
 	}
 
-	if err := u.redis.Set(ctx, cacheKey, resultados); err != nil {
-		log.Warn("cache indisponivel", "erro", err)
-	}
-
 	return resultados, nil
 }
 
@@ -139,7 +163,7 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, 
 			"tamanho":                     tamanho,
 		}
 		raw, _ := json.Marshal(cacheParams)
-		cacheKey := redis.ChaveCache("pncp-publicacao-pagina", raw)
+		cacheKey := redis.ChaveCache(redis.ChavePNCPublicacaoPagina, raw)
 
 		var cached *pncp.PublicacaoResponse
 		cacheHit := false
@@ -173,6 +197,10 @@ func (u *ConsultaPublicacaoPNCPUseCase) buscarTodasPaginas(ctx context.Context, 
 
 			if setErr := u.redis.Set(ctx, cacheKey, resp); setErr != nil {
 				log.Warn("cache indisponivel", "erro", setErr)
+			}
+
+			if idxErr := u.licitacaoCache.IndexarContratos(ctx, resp.Data); idxErr != nil {
+				log.Warn("erro ao indexar contratos", "erro", idxErr)
 			}
 		}
 

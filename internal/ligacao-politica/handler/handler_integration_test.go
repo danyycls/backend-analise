@@ -52,8 +52,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					require.Len(t, resp.Resultados, 1)
 					r := resp.Resultados[0]
 					require.Equal(t, "pncp-001", r.NumeroControlePncp)
-					require.Len(t, r.Documentos, 1)
-					d := r.Documentos[0]
+					require.Len(t, r.DocumentosVinculos, 1)
+					d := r.DocumentosVinculos[0]
 					require.Equal(t, "11222333000181", d.DocumentoNormalizado)
 					require.Len(t, d.Vinculos, 1)
 					require.Equal(t, "fornecedor", d.Vinculos[0].Tipo)
@@ -76,8 +76,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					require.Equal(t, http.StatusOK, w.Code)
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-					require.Len(t, resp.Resultados[0].Documentos, 1)
-					require.Empty(t, resp.Resultados[0].Documentos[0].Vinculos)
+					require.Len(t, resp.Resultados[0].DocumentosVinculos, 1)
+					require.Empty(t, resp.Resultados[0].DocumentosVinculos[0].Vinculos)
 				},
 			},
 			body: map[string][]usecase.AnalisarLigacaoPoliticaRequest{
@@ -97,8 +97,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					require.Equal(t, http.StatusOK, w.Code)
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-					require.Len(t, resp.Resultados[0].Documentos, 1)
-					d := resp.Resultados[0].Documentos[0]
+					require.Len(t, resp.Resultados[0].DocumentosVinculos, 1)
+					d := resp.Resultados[0].DocumentosVinculos[0]
 					require.Equal(t, "11122233344", d.DocumentoNormalizado)
 					require.Len(t, d.Vinculos, 1)
 					require.Equal(t, "doador", d.Vinculos[0].Tipo)
@@ -121,8 +121,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					require.Equal(t, http.StatusOK, w.Code)
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-					require.Len(t, resp.Resultados[0].Documentos, 1)
-					d := resp.Resultados[0].Documentos[0]
+					require.Len(t, resp.Resultados[0].DocumentosVinculos, 1)
+					d := resp.Resultados[0].DocumentosVinculos[0]
 					require.Equal(t, "00011122233344", d.DocumentoInput)
 					require.Equal(t, "11122233344", d.DocumentoNormalizado)
 					require.Len(t, d.Vinculos, 1)
@@ -143,8 +143,8 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 					require.Equal(t, 1, resp.DocumentosProcessados)
-					require.Len(t, resp.Resultados[0].Documentos, 1)
-					require.Empty(t, resp.Resultados[0].Documentos[0].Vinculos)
+					require.Len(t, resp.Resultados[0].DocumentosVinculos, 1)
+					require.Empty(t, resp.Resultados[0].DocumentosVinculos[0].Vinculos)
 				},
 			},
 			body: map[string][]usecase.AnalisarLigacaoPoliticaRequest{
@@ -162,7 +162,7 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 					require.Equal(t, 1, resp.DocumentosProcessados)
-					require.Empty(t, resp.Resultados[0].Documentos)
+					require.Empty(t, resp.Resultados[0].DocumentosVinculos)
 				},
 			},
 			body: map[string][]usecase.AnalisarLigacaoPoliticaRequest{
@@ -206,7 +206,7 @@ func TestAnalisarLigacaoPolitica_Integration(t *testing.T) {
 					require.Equal(t, http.StatusOK, w.Code)
 					var resp usecase.AnalisarLigacaoPoliticaResponse
 					require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
-					v := resp.Resultados[0].Documentos[0].Vinculos
+					v := resp.Resultados[0].DocumentosVinculos[0].Vinculos
 					hasTCU := false
 					for _, vv := range v {
 						if vv.Tipo == "tcu_contas_irregulares" {

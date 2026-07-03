@@ -8,7 +8,6 @@ import (
 	repositorio "github.com/danyele/podp/internal/esferas-brasileiras/tse/repositorio"
 	tsetypes "github.com/danyele/podp/internal/esferas-brasileiras/tse/types"
 	"github.com/danyele/podp/internal/shared/domain"
-	"github.com/danyele/podp/internal/shared/types"
 	"github.com/danyele/podp/internal/shared/utils"
 )
 
@@ -73,35 +72,25 @@ func (s *buscarLigacaoPoliticaTSEServiceImpl) buscarExato(
 	}
 	doadores, _ := repo.DoadoresBuscarPorDocumento(ctx, docsDoador)
 	for _, d := range doadores {
+		recsCand, _ := repo.ReceitasCandidatoBuscarPorDoadorID(ctx, d.ID)
+		recsPart, _ := repo.ReceitasOrgaoBuscarPorDoadorID(ctx, d.ID)
+
+		detalhes := &domain.VinculoDetalhes{Doador: d}
+
+		for _, r := range recsCand {
+			det := utils.MontarReceitaCandidatoDetalhada(ctx, repo, r)
+			detalhes.ReceitasCandidato = append(detalhes.ReceitasCandidato, &det)
+		}
+		for _, r := range recsPart {
+			det := utils.MontarReceitaOrgaoPartidarioDetalhada(ctx, repo, r)
+			detalhes.ReceitasOrgaoPartidario = append(detalhes.ReceitasOrgaoPartidario, &det)
+		}
+
 		vinculos = append(vinculos, domain.Vinculo{
 			Tipo:      "doador",
-			Descricao: fmt.Sprintf("Doador registrado: %s", d.Nome),
-			Detalhes: &domain.VinculoDetalhes{
-				Doador: d,
-			},
+			Descricao: descricaoDoador(input.Nome, doc, d.Nome, detalhes),
+			Detalhes:  detalhes,
 		})
-
-		recsCand, _ := repo.ReceitasCandidatoBuscarPorDoadorID(ctx, d.ID)
-		for _, r := range recsCand {
-			vinculos = append(vinculos, domain.Vinculo{
-				Tipo:      "receita_candidato",
-				Descricao: fmt.Sprintf("Doação (sq_receita=%d) a candidato", r.SQReceita),
-				Detalhes: &domain.VinculoDetalhes{
-					ReceitasCandidato: []*types.ReceitaCandidato{r},
-				},
-			})
-		}
-
-		recsPart, _ := repo.ReceitasOrgaoBuscarPorDoadorID(ctx, d.ID)
-		for _, r := range recsPart {
-			vinculos = append(vinculos, domain.Vinculo{
-				Tipo:      "receita_orgao_partidario",
-				Descricao: fmt.Sprintf("Doação (sq_receita=%d) a partido", r.SQReceita),
-				Detalhes: &domain.VinculoDetalhes{
-					ReceitasOrgaoPartidario: []*types.ReceitaOrgaoPartidario{r},
-				},
-			})
-		}
 	}
 
 	return &BuscarLigacaoPoliticaTSEOutput{Vinculos: vinculos}, nil
@@ -129,33 +118,25 @@ func (s *buscarLigacaoPoliticaTSEServiceImpl) buscarParcial(
 
 	doadores, _ := repo.DoadoresBuscarPorDocumentoParcial(ctx, "%"+doc+"%", nome)
 	for _, d := range doadores {
+		recsCand, _ := repo.ReceitasCandidatoBuscarPorDoadorID(ctx, d.ID)
+		recsPart, _ := repo.ReceitasOrgaoBuscarPorDoadorID(ctx, d.ID)
+
+		detalhes := &domain.VinculoDetalhes{Doador: d}
+
+		for _, r := range recsCand {
+			det := utils.MontarReceitaCandidatoDetalhada(ctx, repo, r)
+			detalhes.ReceitasCandidato = append(detalhes.ReceitasCandidato, &det)
+		}
+		for _, r := range recsPart {
+			det := utils.MontarReceitaOrgaoPartidarioDetalhada(ctx, repo, r)
+			detalhes.ReceitasOrgaoPartidario = append(detalhes.ReceitasOrgaoPartidario, &det)
+		}
+
 		vinculos = append(vinculos, domain.Vinculo{
 			Tipo:      "doador",
-			Descricao: fmt.Sprintf("Doador registrado (parcial): %s", d.Nome),
-			Detalhes:  &domain.VinculoDetalhes{Doador: d},
+			Descricao: descricaoDoador(nome, doc, d.Nome, detalhes),
+			Detalhes:  detalhes,
 		})
-
-		recsCand, _ := repo.ReceitasCandidatoBuscarPorDoadorID(ctx, d.ID)
-		for _, r := range recsCand {
-			vinculos = append(vinculos, domain.Vinculo{
-				Tipo:      "receita_candidato",
-				Descricao: fmt.Sprintf("Doação (sq_receita=%d) a candidato", r.SQReceita),
-				Detalhes: &domain.VinculoDetalhes{
-					ReceitasCandidato: []*types.ReceitaCandidato{r},
-				},
-			})
-		}
-
-		recsPart, _ := repo.ReceitasOrgaoBuscarPorDoadorID(ctx, d.ID)
-		for _, r := range recsPart {
-			vinculos = append(vinculos, domain.Vinculo{
-				Tipo:      "receita_orgao_partidario",
-				Descricao: fmt.Sprintf("Doação (sq_receita=%d) a partido", r.SQReceita),
-				Detalhes: &domain.VinculoDetalhes{
-					ReceitasOrgaoPartidario: []*types.ReceitaOrgaoPartidario{r},
-				},
-			})
-		}
 	}
 
 	return &BuscarLigacaoPoliticaTSEOutput{Vinculos: vinculos}, nil
@@ -167,7 +148,7 @@ func descricaoFornecedor(doc, nome string, dto *tsetypes.FornecedorDetalhado) st
 		label = nome + " (" + doc + ")"
 	}
 
-	base := fmt.Sprintf("%s é fornecedor de campanha", label)
+	base := fmt.Sprintf("%s é fornecedor em campanha política", label)
 
 	qtdDespCand := len(dto.DespesasCandidato)
 	qtdDespPart := len(dto.DespesasOrgaoPartidario)
@@ -183,4 +164,29 @@ func descricaoFornecedor(doc, nome string, dto *tsetypes.FornecedorDetalhado) st
 	}
 
 	return base
+}
+
+func descricaoDoador(nome, doc, nomeDoador string, detalhes *domain.VinculoDetalhes) string {
+	label := nomeDoador
+	if nome != "" && nome != nomeDoador {
+		label = nome + " (" + doc + ")"
+	} else if doc != "" {
+		label = nomeDoador + " (" + doc + ")"
+	}
+
+	qtdCand := len(detalhes.ReceitasCandidato)
+	qtdPart := len(detalhes.ReceitasOrgaoPartidario)
+
+	if qtdCand == 0 && qtdPart == 0 {
+		return fmt.Sprintf("Doador registrado: %s", label)
+	}
+
+	partes := make([]string, 0)
+	if qtdCand > 0 {
+		partes = append(partes, fmt.Sprintf("%d doação(ões) a candidato(s)", qtdCand))
+	}
+	if qtdPart > 0 {
+		partes = append(partes, fmt.Sprintf("%d doação(ões) a partido(s)", qtdPart))
+	}
+	return fmt.Sprintf("%s é doador eleitoral com %s", label, strings.Join(partes, " e "))
 }

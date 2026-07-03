@@ -42,9 +42,9 @@ func (h *EsferaFederalBuscarDeputadosAtivosHandler) BuscarDeputadosAtivos(c *gin
 			normalized[k] = params[k]
 		}
 		raw, _ := json.Marshal(normalized)
-		chave = redis.ChaveCache("deputados", raw)
+		chave = redis.ChaveCache(redis.ChaveDeputados, raw)
 	} else {
-		chave = redis.ChaveCache("deputados", []byte("all"))
+		chave = redis.ChaveCache(redis.ChaveDeputados, []byte("all"))
 	}
 
 	var cached []interface{}

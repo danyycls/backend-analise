@@ -104,7 +104,7 @@ func (u *EsferaEstadualBuscarRecursosFederaisCompletoUseCase) buscarRecursosFede
 func (u *EsferaEstadualBuscarRecursosFederaisCompletoUseCase) tentarCache(ctx context.Context, filtro portalClient.DespesaRecursosRecebidosQueryParams) ([]types.RecursoFederalRecebido, bool) {
 	log := logger.New("Estadual: UseCase: BuscarRecursosFederaisCompleto")
 	raw, _ := json.Marshal(filtro)
-	cacheKey := redis.ChaveCache("estadual-recursos-federais-completo", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveEstadualRecursosFederaisCompleto, raw)
 
 	var cached []types.RecursoFederalRecebido
 	if ok, err := u.redisCache.Get(ctx, cacheKey, &cached); err != nil {
@@ -135,7 +135,7 @@ func (u *EsferaEstadualBuscarRecursosFederaisCompletoUseCase) montarResultado(it
 func (u *EsferaEstadualBuscarRecursosFederaisCompletoUseCase) gravarCache(ctx context.Context, filtro portalClient.DespesaRecursosRecebidosQueryParams, dados []types.RecursoFederalRecebido) {
 	log := logger.New("Estadual: UseCase: BuscarRecursosFederaisCompleto")
 	raw, _ := json.Marshal(filtro)
-	cacheKey := redis.ChaveCache("estadual-recursos-federais-completo", raw)
+	cacheKey := redis.ChaveCache(redis.ChaveEstadualRecursosFederaisCompleto, raw)
 	if err := u.redisCache.Set(ctx, cacheKey, dados); err != nil {
 		log.Warn("cache indisponivel", "erro", err)
 	}

@@ -212,6 +212,8 @@ func (r *Repositorio) InserirEmLote(
 	ctx context.Context, tx pgx.Tx, valores interface{}, lote int,
 ) (int64, error) {
 	switch v := valores.(type) {
+	case []*types.Convenio:
+		return r.inserirConvenios(ctx, tx, v, lote)
 	case []*types.ReceitaDoadorOriginarioCandidato:
 		return r.inserirReceitasDoadorOriginarioCandidato(ctx, tx, v, lote)
 	case []*types.ReceitaDoadorOriginarioOrgaoPartidario:
@@ -221,6 +223,44 @@ func (r *Repositorio) InserirEmLote(
 	default:
 		return 0, fmt.Errorf("tipo nao suportado para InserirEmLote: %T", valores)
 	}
+}
+
+func (r *Repositorio) inserirConvenios(
+	ctx context.Context, tx pgx.Tx, valores []*types.Convenio, lote int,
+) (int64, error) {
+	columns := []string{
+		"id", "numero_convenio", "uf", "codigo_siafi_municipio", "nome_municipio",
+		"situacao_convenio", "numero_original", "numero_processo", "objeto_convenio",
+		"codigo_orgao_superior", "nome_orgao_superior",
+		"codigo_orgao_concedente", "nome_orgao_concedente",
+		"codigo_ug_concedente", "nome_ug_concedente",
+		"codigo_convenente", "tipo_convenente", "nome_convenente", "tipo_ente_convenente",
+		"tipo_instrumento",
+		"valor_convenio", "valor_liberado",
+		"data_publicacao", "data_inicio_vigencia", "data_final_vigencia",
+		"valor_contrapartida", "data_ultima_liberacao", "valor_ultima_liberacao",
+	}
+	conflict := "(numero_convenio)"
+
+	return copyInsertEmLote(ctx, tx, valores, lote, "convenio", columns, conflict,
+		func(v *types.Convenio) []any {
+			return []any{
+				v.ID, v.NumeroConvenio, strNil(v.UF), strNil(v.CodigoSIAFIMunicipio),
+				strNil(v.NomeMunicipio), strNil(v.SituacaoConvenio),
+				strNil(v.NumeroOriginal), strNil(v.NumeroProcesso),
+				strNil(v.ObjetoConvenio),
+				strNil(v.CodigoOrgaoSuperior), strNil(v.NomeOrgaoSuperior),
+				strNil(v.CodigoOrgaoConcedente), strNil(v.NomeOrgaoConcedente),
+				strNil(v.CodigoUGConcedente), strNil(v.NomeUGConcedente),
+				strNil(v.CodigoConvenente), strNil(v.TipoConvenente),
+				strNil(v.NomeConvenente), strNil(v.TipoEnteConvenente),
+				strNil(v.TipoInstrumento),
+				v.ValorConvenio, v.ValorLiberado,
+				v.DataPublicacao, v.DataInicioVigencia, v.DataFinalVigencia,
+				v.ValorContrapartida, v.DataUltimaLiberacao, v.ValorUltimaLiberacao,
+			}
+		},
+	)
 }
 
 func (r *Repositorio) inserirReceitasDoadorOriginarioCandidato(
