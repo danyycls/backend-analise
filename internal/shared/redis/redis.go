@@ -92,26 +92,6 @@ func (r *RedisCache) SetEx(ctx context.Context, chave string, valor interface{},
 	return r.client.Set(ctx, chave, data, ttl).Err()
 }
 
-func (r *RedisCache) SAdd(ctx context.Context, chave string, membros ...string) (int64, error) {
-	args := make([]interface{}, len(membros))
-	for i, m := range membros {
-		args[i] = m
-	}
-	return r.client.SAdd(ctx, chave, args...).Result()
-}
-
-func (r *RedisCache) SMembers(ctx context.Context, chave string) ([]string, error) {
-	return r.client.SMembers(ctx, chave).Result()
-}
-
-func (r *RedisCache) SInter(ctx context.Context, chaves ...string) ([]string, error) {
-	return r.client.SInter(ctx, chaves...).Result()
-}
-
-func (r *RedisCache) SUnionStore(ctx context.Context, destino string, chaves ...string) (int64, error) {
-	return r.client.SUnionStore(ctx, destino, chaves...).Result()
-}
-
 func (r *RedisCache) Exists(ctx context.Context, chaves ...string) (int64, error) {
 	return r.client.Exists(ctx, chaves...).Result()
 }

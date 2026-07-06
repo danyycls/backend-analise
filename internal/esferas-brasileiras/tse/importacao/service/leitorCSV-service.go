@@ -83,7 +83,7 @@ func (s *LeitorCSVService) localizarArquivos() ([]tipos.ArquivoImportacao, error
 			return nil
 		}
 
-		tipo, suportado := parse.IdentificarTipoArquivo(entrada.Name())
+		tipo, suportado := parse.IdentificarTipoArquivo(strings.ToLower(entrada.Name()))
 		if !suportado {
 			return nil
 		}
@@ -104,7 +104,9 @@ func (s *LeitorCSVService) localizarArquivos() ([]tipos.ArquivoImportacao, error
 			Caminho:         caminho,
 			CaminhoRelativo: caminhoRelativo,
 			Diretorio:       diretorio,
+			DiretorioLower:  strings.ToLower(diretorio),
 			Nome:            entrada.Name(),
+			NomeLower:       strings.ToLower(entrada.Name()),
 			Tipo:            tipo,
 		})
 		return nil

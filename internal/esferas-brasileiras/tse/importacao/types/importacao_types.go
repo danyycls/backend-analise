@@ -10,6 +10,8 @@ type ArquivoImportacao struct {
 	Caminho         string
 	CaminhoRelativo string
 	Diretorio       string
+	DiretorioLower string
 	Nome            string
+	NomeLower       string
 	Tipo            string
 }

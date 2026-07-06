@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS licitacao_busca_controle CASCADE;
+DROP TABLE IF EXISTS licitacao_contrato CASCADE;
+DROP TABLE IF EXISTS fornecedor_socio CASCADE;
+DROP TABLE IF EXISTS socio CASCADE;
+DROP TABLE IF EXISTS licitacao_fornecedor CASCADE;
+DROP TABLE IF EXISTS amparo_legal CASCADE;

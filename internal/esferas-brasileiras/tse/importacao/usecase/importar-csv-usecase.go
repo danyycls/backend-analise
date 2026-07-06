@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -129,13 +128,13 @@ type importarCSVUseCase struct {
 
 // NovoImportarCSVUseCase cria uma nova instância
 func NovoImportarCSVUseCase(pool *pgxpool.Pool, leitorCSVService service.LeitorCSVServiceInterface) ImportarCSVUseCase {
-	batchSize := 2000
+	batchSize := 10000
 	if v := os.Getenv("IMPORT_BATCH_SIZE"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			batchSize = n
 		}
 	}
-	maxWorkers := 4
+	maxWorkers := runtime.NumCPU() * 2
 	if v := os.Getenv("IMPORT_MAX_WORKERS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			maxWorkers = n
@@ -227,7 +226,7 @@ type leituraOrdenada struct {
 }
 
 func prioridadeDiretorio(nome string) int {
-	d := strings.ToLower(nome)
+	d := nome
 	switch {
 	case strings.Contains(d, "portaltransparencia"):
 		return 0
@@ -278,15 +277,14 @@ func ordenarDiretorios(dirs []string) {
 }
 
 func diretorioPrecisaCandidatos(dir string) bool {
-	d := strings.ToLower(dir)
-	return strings.Contains(d, "bem_candidato") ||
-		strings.Contains(d, "candidatos") ||
-		strings.Contains(d, "orgaos_partidarios") ||
-		strings.Contains(d, "orgao_partidario")
+	return strings.Contains(dir, "bem_candidato") ||
+		strings.Contains(dir, "candidatos") ||
+		strings.Contains(dir, "orgaos_partidarios") ||
+		strings.Contains(dir, "orgao_partidario")
 }
 
 func diretorioSomenteTransacional(dir string) bool {
-	return strings.Contains(strings.ToLower(dir), "bem_candidato")
+	return strings.Contains(dir, "bem_candidato")
 }
 
 func (u *importarCSVUseCase) processarPorDiretorio(
@@ -297,26 +295,28 @@ func (u *importarCSVUseCase) processarPorDiretorio(
 ) error {
 	log := logger.New("LeitorCSV: UseCase: processarPorDiretorio")
 	dirs := make([]string, 0, len(porDir))
-	for d := range porDir {
+	dirLower := make(map[string]string, len(porDir))
+	for d, arquivos := range porDir {
 		dirs = append(dirs, d)
+		if len(arquivos) > 0 {
+			dirLower[d] = arquivos[0].DiretorioLower
+		}
 	}
 	ordenarDiretorios(dirs)
 
 	for i, dir := range dirs {
 		u.progression.DiretorioIndice.Store(int32(i + 1))
 		log.Info("iniciando diretorio", "indice", i+1, "total", len(dirs), "diretorio", dir, "arquivos", len(porDir[dir]))
-		if err := u.processarDiretorio(ctx, dir, porDir[dir], arquivosImportados, resultado); err != nil {
+		if err := u.processarDiretorio(ctx, dir, dirLower[dir], porDir[dir], arquivosImportados, resultado); err != nil {
 			return err
 		}
 		log.Info("diretorio concluido", "diretorio", dir)
 
 		runtime.GC()
-		debug.FreeOSMemory()
 		log.Info("memoria liberada apos diretorio", "diretorio", dir)
 	}
 
 	runtime.GC()
-	debug.FreeOSMemory()
 	log.Info("memoria liberada ao final de todos os diretorios")
 
 	u.progression.DiretorioIndice.Store(0)
@@ -326,13 +326,14 @@ func (u *importarCSVUseCase) processarPorDiretorio(
 func (u *importarCSVUseCase) processarDiretorio(
 	ctx context.Context,
 	dir string,
+	dirLower string,
 	arquivos []tipos.ArquivoImportacao,
 	arquivosImportados map[string]bool,
 	resultado *ImportarCSVResponse,
 ) error {
 	log := logger.New("LeitorCSV: UseCase: processarDiretorio")
 	var cacheCandidatos *tipos.DadosImportacao
-	if diretorioPrecisaCandidatos(dir) {
+	if diretorioPrecisaCandidatos(dirLower) {
 		cacheCandidatos = tipos.NovoDadosImportacao()
 		total, err := u.pgRepo.CarregarCandidatosNoMapa(ctx, cacheCandidatos.Candidatos)
 		if err != nil {
@@ -468,7 +469,7 @@ func (u *importarCSVUseCase) processarDiretorio(
 			u.progression.Lidos.Add(1)
 			u.progression.AguardandoPersist.Add(1)
 
-			if diretorioSomenteTransacional(dir) {
+			if diretorioSomenteTransacional(dirLower) {
 				parse.MergeDadosTransacionais(dadosColetados, slot.dados)
 			} else {
 				MergeDadosParaColetor(dadosColetados, slot.dados)
@@ -524,7 +525,6 @@ func (u *importarCSVUseCase) processarDiretorio(
 
 		log.Info("forcando garbage collection pos-lote")
 		runtime.GC()
-		debug.FreeOSMemory()
 	}
 
 	parse.LimparTodosDados(dadosAcumulados)

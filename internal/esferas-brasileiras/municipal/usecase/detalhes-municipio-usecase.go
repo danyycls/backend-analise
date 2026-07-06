@@ -11,12 +11,18 @@ import (
 	pncpClient "github.com/danyele/podp/internal/shared/clients/pncp"
 	"github.com/danyele/podp/internal/shared/clients/siconfi"
 	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/pncpbusca"
+	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/repositorios"
 	"github.com/danyele/podp/internal/shared/types"
+	"github.com/danyele/podp/internal/shared/utils"
 )
 
 type EsferaMunicipalBuscarDetalhesUseCase struct {
 	siconfiClient   *siconfi.SICONFIClient
 	pncpClient      *pncpClient.PNCPClient
+	redis           *redis.RedisCache
+	repo            repositorios.PNCPRepository
 	apiIndisponivel atomic.Bool
 }
 
@@ -27,10 +33,14 @@ func (u *EsferaMunicipalBuscarDetalhesUseCase) SICONFIIndisponivel() bool {
 func NovoEsferaMunicipalBuscarDetalhesUseCase(
 	siconfiCli *siconfi.SICONFIClient,
 	pncpCli *pncpClient.PNCPClient,
+	redis *redis.RedisCache,
+	repo repositorios.PNCPRepository,
 ) *EsferaMunicipalBuscarDetalhesUseCase {
 	return &EsferaMunicipalBuscarDetalhesUseCase{
 		siconfiClient: siconfiCli,
 		pncpClient:    pncpCli,
+		redis:         redis,
+		repo:          repo,
 	}
 }
 
@@ -97,7 +107,7 @@ func (u *EsferaMunicipalBuscarDetalhesUseCase) BuscarTransferencias(ctx context.
 	return u.buscarTransferencias(ctx, idEnte, exercicio)
 }
 
-func (u *EsferaMunicipalBuscarDetalhesUseCase) BuscarContratos(ctx context.Context, codigoIBGE int, ano int) interface{} {
+func (u *EsferaMunicipalBuscarDetalhesUseCase) BuscarContratos(ctx context.Context, codigoIBGE int, ano int) []pncpClient.Contrato {
 	if ano <= 0 {
 		ano = int(time.Now().Year() - 1)
 	}
@@ -657,25 +667,136 @@ func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarBalancoPatrimonial(ctx cont
 	}
 }
 
-func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarContratos(ctx context.Context, codigoIBGE int, ano int) interface{} {
+func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarContratos(ctx context.Context, codigoIBGE int, ano int) []pncpClient.Contrato {
 	log := logger.New("Municipal: UseCase: buscarContratos")
 	if ano <= 0 {
 		ano = int(time.Now().Year() - 1)
 	}
 
-	dataInicial := strconv.Itoa(ano) + "0101"
-	dataFinal := strconv.Itoa(ano) + "1231"
-
 	codigoStr := strconv.Itoa(codigoIBGE)
-	resp, err := u.pncpClient.BuscarContratacoesPorMunicipio(ctx, codigoStr, dataInicial, dataFinal, "", 1, 20)
-	if err != nil {
-		log.Error("erro ao buscar contratos PNCP", "codigo_ibge", codigoIBGE, "erro", err)
-		return nil
+	meses := utils.ExtrairMesesDoAno(ano)
+	total := make([]pncpClient.Contrato, 0)
+
+	for _, am := range meses {
+		jaRealizada, err := u.repo.BuscaJaRealizada(ctx, "municipio", codigoStr, am.Ano, am.Mes)
+		if err != nil {
+			log.Warn("erro ao verificar busca no PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+			continue
+		}
+		if jaRealizada {
+			persistidos, err := u.repo.BuscarContratosPorFiltro(ctx, "municipio", codigoStr, am.Ano, am.Mes)
+			if err != nil {
+				log.Warn("erro ao buscar contratos do PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+				continue
+			}
+			for i := range persistidos {
+				total = append(total, repositorios.PersistidoParaContrato(persistidos[i]))
+			}
+			continue
+		}
+
+		contratosMes := u.buscarMesComLock(ctx, "municipio", codigoStr, am.Ano, am.Mes)
+		total = append(total, contratosMes...)
 	}
 
-	if resp == nil || len(resp.Data) == 0 {
+	log.Info("contratos encontrados", "codigo_ibge", codigoIBGE, "ano", ano, "total", len(total))
+	if len(total) == 0 {
 		return nil
 	}
+	return total
+}
 
-	return resp.Data
+func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarMesComLock(ctx context.Context, tipo, valor string, ano, mes int) []pncpClient.Contrato {
+	fetch := func(c context.Context, t string, v string, a, m int) ([]pncpClient.Contrato, error) {
+		return u.buscarTodasPaginas(c, t, v, a, m), nil
+	}
+	persist := func(c context.Context, t string, v string, a, m int, contratos []pncpClient.Contrato) error {
+		return persistirContratosMunicipio(c, u.repo, t, v, a, m, contratos)
+	}
+	return pncpbusca.BuscarMesComLock(
+		ctx, u.redis, u.repo, fetch, persist,
+		tipo, valor, ano, mes,
+	)
+}
+
+func persistirContratosMunicipio(ctx context.Context, repo repositorios.PNCPRepository, tipo, valor string, ano, mes int, contratos []pncpClient.Contrato) error {
+	if len(contratos) == 0 {
+		controle := repositorios.BuscaControlePersistido{
+			TipoBusca: tipo, ValorBusca: valor,
+			Ano: ano, Mes: mes,
+			DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
+			DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
+			TotalContratosEncontrados: 0,
+		}
+		return repo.RegistrarBusca(ctx, controle)
+	}
+
+	persistidos := make([]repositorios.ContratoPersistido, len(contratos))
+	for i, c := range contratos {
+		persistidos[i] = repositorios.ContratoParaPersistido(c)
+	}
+	if err := repo.SalvarContratos(ctx, persistidos); err != nil {
+		return err
+	}
+
+	controle := repositorios.BuscaControlePersistido{
+		TipoBusca: tipo, ValorBusca: valor,
+		Ano: ano, Mes: mes,
+		DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
+		DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
+		TotalContratosEncontrados: len(contratos),
+	}
+	return repo.RegistrarBusca(ctx, controle)
+}
+
+func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarTodasPaginas(ctx context.Context, tipo, valor string, ano, mes int) []pncpClient.Contrato {
+	log := logger.New("Municipal: UseCase: buscarTodasPaginas")
+
+	dataInicial, dataFinal := utils.FormatarPeriodoMes(ano, mes)
+
+	pagina := 1
+	tamanho := 50
+	items := make([]pncpClient.Contrato, 0)
+	seen := make(map[string]struct{})
+
+	for {
+		resp, err := u.pncpClient.BuscarContratacoesPorMunicipio(ctx, valor, dataInicial, dataFinal, "", pagina, tamanho)
+		if err != nil {
+			log.Error("erro ao buscar contratacoes municipio", "pagina", pagina, "erro", err)
+			break
+		}
+
+		if resp == nil || len(resp.Data) == 0 {
+			break
+		}
+
+		for _, c := range resp.Data {
+			key := ""
+			if c.NumeroControlePNCP != nil {
+				key = *c.NumeroControlePNCP
+			}
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			items = append(items, c)
+		}
+
+		if pagina >= resp.TotalPaginas {
+			break
+		}
+		pagina++
+
+		select {
+		case <-ctx.Done():
+			return items
+		default:
+		}
+	}
+
+	log.Info("contratos obtidos PNCP municipio", "valor", valor, "ano", ano, "mes", mes, "total", len(items))
+	return items
 }

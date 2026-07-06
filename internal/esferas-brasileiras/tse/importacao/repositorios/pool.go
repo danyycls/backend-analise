@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +29,7 @@ func ConfigFromEnv() Config {
 		User:            getEnv("DB_USER", "postgres"),
 		Password:        getEnv("DB_PASSWORD", "postgres"),
 		Database:        getEnv("DB_NAME", "podp"),
-		MaxConns:        8,
+		MaxConns:        int32(runtime.NumCPU() * 2),
 		MinConns:        2,
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,

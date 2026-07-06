@@ -23,6 +23,7 @@ import (
 	tseHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/handler"
 	importacaoHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/handler"
 	importacaoRepositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
+	repositorios "github.com/danyele/podp/internal/shared/repositorios"
 	importacaoService "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/service"
 	importacaoUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/usecase"
 	tseUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
@@ -227,7 +228,6 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	if err := redisCache.Ping(context.Background()); err != nil {
 		log.Fatal("redis indisponivel", "erro", err)
 	}
-	licitacaoCache := redis.NovoLicitacaoCache(redisCache)
 
 	portalClient := clientPortal.NovoPortalTransparenciaClient(
 		os.Getenv("PORTAL_TRANSPARENCIA_API_KEY"),
@@ -240,6 +240,9 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	if err != nil {
 		log.Fatal("erro ao criar pgx pool", "erro", err)
 	}
+
+	poolDB := database.NewPoolDB(pgPool)
+	pncpRepo := repositorios.NovoPNCPRepository(poolDB)
 
 	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, leitorCSVService)
 	leitorCSVHandler := importacaoHandler.NovoLeitorCSVHandler(leitorCSVUseCase)
@@ -267,11 +270,11 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	buscarFornecedorUC := tseUseCase.NovoBuscarFornecedorUseCase(db)
 
 	pncpAnaliseOrgaoHandler := handlerPNCP.NovoAnaliseOrgaoPNCPHandler(
-		usecasePNCP.NovoConsultaCNPJOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache),
+		usecasePNCP.NovoConsultaCNPJOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
 		redisCache,
 	)
 	pncpAnalisePubHandler := handlerPNCP.NovoAnalisePublicacaoHandler(
-		usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache),
+		usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
 		redisCache,
 	)
 
@@ -368,7 +371,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	recursosFederaisUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisUseCase(portalClient, redisCache)
 	recursosFederaisCompletoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisCompletoUseCase(portalClient, redisCache)
 
-	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, pncpClient)
+	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, pncpClient, redisCache, pncpRepo)
 
 	siapeUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAPEUseCase(portalClient)
 	siafiUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAFIUseCase(portalClient)
@@ -433,7 +436,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 		AnaliseOrgaoPNCPHandler:   pncpAnaliseOrgaoHandler,
 		AnalisePublicacaoHandler:  pncpAnalisePubHandler,
-		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, licitacaoCache)),
+		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo)),
 		ListarMunicipiosHandler:   handlerPNCP.NovoListarMunicipiosHandler(ibgeClient),
 
 		HandlerBuscaRelacoes:    relacoesHandlerBusca,

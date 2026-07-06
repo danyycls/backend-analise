@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sync"
-	"time"
 
 	"github.com/danyele/podp/internal/shared/clients/opencnpj"
 	"github.com/danyele/podp/internal/shared/clients/pncp"
 	"github.com/danyele/podp/internal/shared/logger"
+	"github.com/danyele/podp/internal/shared/pncpbusca"
 	redis "github.com/danyele/podp/internal/shared/redis"
+	"github.com/danyele/podp/internal/shared/repositorios"
 	"github.com/danyele/podp/internal/shared/types"
 	"github.com/danyele/podp/internal/shared/utils"
 )
@@ -22,17 +22,15 @@ type ConsultaCNPJOrgaoPNCPUseCase struct {
 	pncpClient     *pncp.PNCPClient
 	opencnpjClient *opencnpj.OpenCNPJClient
 	redis          *redis.RedisCache
-	licitacaoCache *redis.LicitacaoCache
-	httpClient     *http.Client
+	repo           repositorios.PNCPRepository
 }
 
-func NovoConsultaCNPJOrgaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache, licitacaoCache *redis.LicitacaoCache) *ConsultaCNPJOrgaoPNCPUseCase {
+func NovoConsultaCNPJOrgaoPNCPUseCase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache, repo repositorios.PNCPRepository) *ConsultaCNPJOrgaoPNCPUseCase {
 	return &ConsultaCNPJOrgaoPNCPUseCase{
 		pncpClient:     pncp,
 		opencnpjClient: opencnpj,
 		redis:          redis,
-		licitacaoCache: licitacaoCache,
-		httpClient:     &http.Client{Timeout: 15 * time.Second},
+		repo:           repo,
 	}
 }
 
@@ -58,11 +56,9 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) AnaliseMultiplos(ctx context.Context, req
 		sem <- struct{}{}
 
 		go func(cnpj string) {
-			log := logger.New("PNCP: UseCase: AnaliseMultiplos")
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			log.Info("iniciando analise", "cnpj", cnpj)
 			eventos <- pncp.EventoAnalise{Type: "started", CNPJ: cnpj}
 
 			result, err := u.executar(ctx, cnpj, req.DataInicial, req.DataFinal)
@@ -76,35 +72,15 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) AnaliseMultiplos(ctx context.Context, req
 			} else {
 				success++
 				results = append(results, result)
-				nomeOrgao := ""
-				if result != nil && result.Orgao != nil && result.Orgao.RazaoSocial != nil {
-					nomeOrgao = *result.Orgao.RazaoSocial
-				}
-				totalContratos := 0
-				var valorTotal float64
-				if result != nil && result.Resumo != nil {
-					if result.Resumo.TotalContratos != nil {
-						totalContratos = *result.Resumo.TotalContratos
-					}
-					if result.Resumo.ValorTotalContratos != nil {
-						valorTotal = *result.Resumo.ValorTotalContratos
-					}
-				}
-				log.Info("analise concluida com sucesso", "cnpj", cnpj, "orgao", nomeOrgao, "contratos", totalContratos)
 				eventos <- pncp.EventoAnalise{
-					Type:                "success",
-					CNPJ:                cnpj,
-					Orgao:               nomeOrgao,
-					TotalContratos:      totalContratos,
-					ValorTotalContratos: valorTotal,
+					Type:  "success",
+					CNPJ:  cnpj,
+					Orgao: nomeOrgaoFromResult(result),
 				}
 			}
 			eventos <- pncp.EventoAnalise{
-				Type:      "progress",
-				Processed: processed,
-				Total:     total,
-				Success:   success,
-				Errors:    errors,
+				Type: "progress", Processed: processed, Total: total,
+				Success: success, Errors: errors,
 			}
 			mu.Unlock()
 		}(cnpj)
@@ -116,48 +92,178 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) AnaliseMultiplos(ctx context.Context, req
 	return results
 }
 
+func nomeOrgaoFromResult(result *pncp.AnaliseResultado) string {
+	if result != nil && result.Orgao != nil && result.Orgao.RazaoSocial != nil {
+		return *result.Orgao.RazaoSocial
+	}
+	return ""
+}
+
 func (u *ConsultaCNPJOrgaoPNCPUseCase) executar(ctx context.Context, cnpjOrgao, dataInicial, dataFinal string) (*pncp.AnaliseResultado, error) {
 	log := logger.New("PNCP: UseCase: executar")
 	cnpj := utils.NormalizarCNPJ(cnpjOrgao)
 
+	if result := u.checkCache(ctx, cnpj, dataInicial, dataFinal); result != nil {
+		return result, nil
+	}
+
+	log.Info("iniciando analise orgao", "cnpj", cnpj, "data_inicial", dataInicial, "data_final", dataFinal)
+
+	contratos := u.coletarContratos(ctx, "orgao", cnpj, dataInicial, dataFinal)
+	if len(contratos) == 0 {
+		return nil, fmt.Errorf("erro ao consultar contratos para CNPJ %s", cnpj)
+	}
+
+	log.Info("contratos encontrados", "total", len(contratos))
+	result := u.montarResultado(ctx, contratos, cnpj, dataInicial, dataFinal)
+	u.writeCache(ctx, cnpj, dataInicial, dataFinal, result)
+
+	return result, nil
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) checkCache(ctx context.Context, cnpj, dataInicial, dataFinal string) *pncp.AnaliseResultado {
 	cacheParams := map[string]interface{}{
-		"tipo":                        "orgao",
-		"valor":                       cnpj,
-		"dataInicial":                 dataInicial,
-		"dataFinal":                   dataFinal,
-		"codigoModalidadeContratacao": "",
+		"tipo": "orgao", "valor": cnpj,
+		"dataInicial": dataInicial, "dataFinal": dataFinal,
 	}
 	raw, _ := json.Marshal(cacheParams)
 	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
 
 	var cached []*pncp.AnaliseResultado
 	if ok, err := u.redis.Get(ctx, cacheKey, &cached); err != nil {
-		log.Warn("cache indisponivel", "erro", err)
+		logger.New("PNCP: UseCase: executar").Warn("cache indisponivel", "erro", err)
 	} else if ok && len(cached) > 0 {
-		log.Info("cache hit", "cnpj", cnpj)
-		return cached[0], nil
+		logger.New("PNCP: UseCase: executar").Info("cache hit", "cnpj", cnpj)
+		return cached[0]
+	}
+	return nil
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) writeCache(ctx context.Context, cnpj, dataInicial, dataFinal string, result *pncp.AnaliseResultado) {
+	cacheParams := map[string]interface{}{
+		"tipo": "orgao", "valor": cnpj,
+		"dataInicial": dataInicial, "dataFinal": dataFinal,
+	}
+	raw, _ := json.Marshal(cacheParams)
+	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
+
+	if err := u.redis.Set(ctx, cacheKey, []*pncp.AnaliseResultado{result}); err != nil {
+		logger.New("PNCP: UseCase: executar").Warn("cache indisponivel", "erro", err)
+	}
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) coletarContratos(ctx context.Context, tipo, valor, dataInicial, dataFinal string) []pncp.Contrato {
+	meses := utils.ExtrairMeses(dataInicial, dataFinal)
+	if len(meses) == 0 {
+		return nil
 	}
 
-	log.Info("iniciando analise orgao", "cnpj", cnpj, "data_inicial", dataInicial, "data_final", dataFinal)
+	var contratos []pncp.Contrato
+	var mesesPendentes []utils.AnoMes
 
-	contratosRaw := u.buscarContratos(ctx, cnpj, dataInicial, dataFinal)
-	if contratosRaw == nil {
-		return nil, fmt.Errorf("erro ao consultar contratos para CNPJ %s", cnpj)
+	for _, am := range meses {
+		jaRealizada, err := u.repo.BuscaJaRealizada(ctx, tipo, valor, am.Ano, am.Mes)
+		if err != nil {
+			logger.New("PNCP: UseCase: coletarContratos").Warn("erro ao verificar busca no PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+			mesesPendentes = append(mesesPendentes, am)
+			continue
+		}
+		if jaRealizada {
+			persistidos, err := u.repo.BuscarContratosPorFiltro(ctx, tipo, valor, am.Ano, am.Mes)
+			if err != nil {
+				logger.New("PNCP: UseCase: coletarContratos").Warn("erro ao buscar contratos do PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+				mesesPendentes = append(mesesPendentes, am)
+				continue
+			}
+			for i := range persistidos {
+				contratos = append(contratos, repositorios.PersistidoParaContrato(persistidos[i]))
+			}
+			continue
+		}
+		mesesPendentes = append(mesesPendentes, am)
 	}
 
-	log.Info("contratos encontrados", "total", len(contratosRaw))
-	fornecedoresMap := u.extrairFornecedores(contratosRaw)
+	if len(mesesPendentes) > 0 {
+		pendentes := buscarMesesParalelo(ctx, tipo, valor, mesesPendentes, u.buscarMesComLock)
+		contratos = append(contratos, pendentes...)
+	}
+
+	return contratos
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) buscarMesComLock(ctx context.Context, tipo, valor string, ano, mes int) []pncp.Contrato {
+	return pncpbusca.BuscarMesComLock(ctx, u.redis, u.repo,
+		u.buscarContratosDoPNCP,
+		func(c context.Context, t string, v string, a, m int, contratos []pncp.Contrato) error {
+			return persistirContratos(c, u.repo, t, v, a, m, contratos)
+		},
+		tipo, valor, ano, mes,
+	)
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) buscarContratosDoPNCP(ctx context.Context, _ string, valor string, ano, mes int) ([]pncp.Contrato, error) {
+	log := logger.New("PNCP: UseCase: buscarContratosDoPNCP")
+
+	dataInicial, dataFinal := utils.FormatarPeriodoMes(ano, mes)
+	pagina := 1
+	tamanho := 500
+	contratos := make([]pncp.Contrato, 0)
+	seen := make(map[string]struct{})
+
+	for {
+		resp, err := u.pncpClient.BuscarContratos(ctx, valor, dataInicial, dataFinal, pagina, tamanho)
+		if err != nil {
+			return nil, fmt.Errorf("pagina %d: %w", pagina, err)
+		}
+		if len(resp) == 0 {
+			break
+		}
+
+		for _, c := range resp {
+			key := ""
+			if c.NumeroControlePNCP != nil {
+				key = *c.NumeroControlePNCP
+			}
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			contratos = append(contratos, c)
+		}
+
+		if len(resp) < tamanho {
+			break
+		}
+		pagina++
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+	}
+
+	log.Info("contratos obtidos do PNCP", "valor", valor, "ano", ano, "mes", mes, "total", len(contratos))
+	return contratos, nil
+}
+
+func (u *ConsultaCNPJOrgaoPNCPUseCase) montarResultado(ctx context.Context, contratos []pncp.Contrato, cnpj, dataInicial, dataFinal string) *pncp.AnaliseResultado {
+	log := logger.New("PNCP: UseCase: montarResultado")
+
+	fornecedoresMap := extrairFornecedores(contratos)
 	log.Info("fornecedores unicos extraidos", "total", len(fornecedoresMap))
 
-	enrichedFornecedores := u.enriquecerFornecedores(ctx, fornecedoresMap)
+	enrichedFornecedores := enriquecerFornecedoresComRepo(ctx, u.repo, u.opencnpjClient, fornecedoresMap)
 	log.Info("empresas enriquecidas", "total", len(enrichedFornecedores))
 
-	contratosDTO := u.montarContratosDTO(contratosRaw, enrichedFornecedores)
+	contratosDTO := montarContratosDTO(contratos, enrichedFornecedores)
 	totalContratos, totalEmpresas, valorTotal := u.calcularResumo(contratosDTO, enrichedFornecedores)
-
 	orgao := u.montarOrgaoInfo(cnpj, contratosDTO)
 
-	result := &pncp.AnaliseResultado{
+	return &pncp.AnaliseResultado{
 		Orgao: orgao,
 		Periodo: &pncp.Periodo{
 			DataInicial: pncp.StrPtr(dataInicial),
@@ -170,132 +276,6 @@ func (u *ConsultaCNPJOrgaoPNCPUseCase) executar(ctx context.Context, cnpjOrgao, 
 		},
 		Contratos: contratosDTO,
 	}
-
-	if err := u.redis.Set(ctx, cacheKey, []*pncp.AnaliseResultado{result}); err != nil {
-		log.Warn("cache indisponivel", "erro", err)
-	}
-
-	return result, nil
-}
-
-func (u *ConsultaCNPJOrgaoPNCPUseCase) buscarContratos(ctx context.Context, cnpj, dataInicial, dataFinal string) []pncp.Contrato {
-	log := logger.New("PNCP: UseCase: buscarContratos")
-	pagina := 1
-	tamanho := 500
-	contratos := make([]pncp.Contrato, 0)
-	seenContratos := make(map[string]struct{})
-
-	for {
-		cacheParams := map[string]interface{}{
-			"cnpj":        cnpj,
-			"dataInicial": dataInicial,
-			"dataFinal":   dataFinal,
-			"pagina":      pagina,
-			"tamanho":     tamanho,
-		}
-		raw, _ := json.Marshal(cacheParams)
-		cacheKey := redis.ChaveCache(redis.ChavePNCBuscarContratos, raw)
-
-		var cached []pncp.Contrato
-		cacheHit := false
-		if ok, err := u.redis.Get(ctx, cacheKey, &cached); err != nil {
-			log.Warn("cache indisponivel", "erro", err)
-		} else if ok {
-			cacheHit = true
-			log.Info("cache hit pagina", "pagina", pagina)
-		}
-
-		var resp []pncp.Contrato
-		var err error
-		if cacheHit {
-			resp = cached
-		} else {
-			resp, err = u.pncpClient.BuscarContratos(ctx, cnpj, dataInicial, dataFinal, pagina, tamanho)
-			if err != nil {
-				log.Error("erro ao consultar PNCP", "pagina", pagina, "erro", err)
-				return nil
-			}
-			if setErr := u.redis.Set(ctx, cacheKey, resp); setErr != nil {
-				log.Warn("cache indisponivel", "erro", setErr)
-			}
-
-			if idxErr := u.licitacaoCache.IndexarContratos(ctx, resp); idxErr != nil {
-				log.Warn("erro ao indexar contratos", "erro", idxErr)
-			}
-		}
-
-		log.Info("contratos por pagina", "pagina", pagina, "total", len(resp))
-		if len(resp) == 0 {
-			break
-		}
-		for _, c := range resp {
-			key := ""
-			if c.NumeroControlePNCP != nil {
-				key = *c.NumeroControlePNCP
-			}
-			if key == "" {
-				continue
-			}
-			if _, ok := seenContratos[key]; ok {
-				continue
-			}
-			seenContratos[key] = struct{}{}
-			contratos = append(contratos, c)
-		}
-		if len(resp) < tamanho {
-			break
-		}
-		pagina++
-	}
-	return contratos
-}
-
-func (u *ConsultaCNPJOrgaoPNCPUseCase) extrairFornecedores(contratos []pncp.Contrato) map[string]string {
-	fornecedores := make(map[string]string)
-	for _, c := range contratos {
-		if c.NIFornecedor == nil || *c.NIFornecedor == "" {
-			continue
-		}
-		ni := utils.NormalizarCNPJ(*c.NIFornecedor)
-		if _, ok := fornecedores[ni]; !ok {
-			nome := ""
-			if c.NomeRazaoSocialFornecedor != nil {
-				nome = *c.NomeRazaoSocialFornecedor
-			}
-			fornecedores[ni] = nome
-		}
-	}
-	return fornecedores
-}
-
-func (u *ConsultaCNPJOrgaoPNCPUseCase) enriquecerFornecedores(ctx context.Context, fornecedoresMap map[string]string) map[string]*types.FornecedorOpenCNPJ {
-	log := logger.New("PNCP: UseCase: enriquecerFornecedores")
-	enriched := make(map[string]*types.FornecedorOpenCNPJ, len(fornecedoresMap))
-	for cnpjF, nome := range fornecedoresMap {
-		data, err := u.opencnpjClient.Buscar(ctx, cnpjF)
-		if err != nil {
-			log.Error("erro ao consultar OpenCNPJ", "cnpj", cnpjF, "erro", err)
-			enriched[cnpjF] = &types.FornecedorOpenCNPJ{CNPJ: pncp.StrPtr(cnpjF), RazaoSocial: pncp.StrPtr(nome)}
-			continue
-		}
-		enriched[cnpjF] = utils.BuildFornecedorDTO(data)
-	}
-	return enriched
-}
-
-func (u *ConsultaCNPJOrgaoPNCPUseCase) montarContratosDTO(contratos []pncp.Contrato, enrichedFornecedores map[string]*types.FornecedorOpenCNPJ) []pncp.Contrato {
-	contratosDTO := make([]pncp.Contrato, len(contratos))
-	copy(contratosDTO, contratos)
-	for i, c := range contratosDTO {
-		if c.NIFornecedor == nil {
-			continue
-		}
-		ni := utils.NormalizarCNPJ(*c.NIFornecedor)
-		if enriched, ok := enrichedFornecedores[ni]; ok {
-			contratosDTO[i].Fornecedor = enriched
-		}
-	}
-	return contratosDTO
 }
 
 func (u *ConsultaCNPJOrgaoPNCPUseCase) calcularResumo(contratosDTO []pncp.Contrato, enrichedFornecedores map[string]*types.FornecedorOpenCNPJ) (int, int, float64) {

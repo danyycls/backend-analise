@@ -66,9 +66,7 @@ func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[s
 			return err
 		}
 
-		for k := range registro {
-			delete(registro, k)
-		}
+		clear(registro)
 		poolMapaCSV.Put(registro)
 	}
 }
