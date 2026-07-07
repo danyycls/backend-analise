@@ -7,6 +7,7 @@ package parse
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -27,7 +28,13 @@ func chaveUnidadeEleitoral(ufSigla, codigoTSE string) string {
 // chavePrestacaoNatural compõe a chave natural de uma prestação de contas
 // no formato "tipoPrestador|eleicaoID|sqPrestador".
 func chavePrestacaoNatural(tipoPrestador string, eleicaoID uuid.UUID, sqPrestador int64) string {
-	return fmt.Sprintf("%s|%s|%d", tipoPrestador, eleicaoID.String(), sqPrestador)
+	buf := make([]byte, 0, len(tipoPrestador)+1+36+1+20)
+	buf = append(buf, tipoPrestador...)
+	buf = append(buf, '|')
+	buf = append(buf, eleicaoID.String()...)
+	buf = append(buf, '|')
+	buf = strconv.AppendInt(buf, sqPrestador, 10)
+	return string(buf)
 }
 
 // -----------------------------------------------------------------------------
@@ -38,12 +45,18 @@ func chavePrestacaoNatural(tipoPrestador string, eleicaoID uuid.UUID, sqPrestado
 // registro com os dados informados. Usa fallback para descrição vazia.
 func (p *ProcessadorLeitorCSV) garantirEleicao(_ context.Context, codigoTexto, anoTexto, codigoTipoTexto, nomeTipo, descricao, dataTexto string) (uuid.UUID, error) {
 	codigo := inteiroOpcional(codigoTexto)
+	if codigo == nil {
+		return uuid.Nil, fmt.Errorf("CD_ELEICAO obrigatorio e invalido: %q", codigoTexto)
+	}
 
 	if existente, ok := p.dados.Eleicoes[*codigo]; ok {
 		return existente.ID, nil
 	}
 
 	ano := inteiroOpcional(anoTexto)
+	if ano == nil {
+		return uuid.Nil, fmt.Errorf("ANO_ELEICAO obrigatorio e invalido: %q", anoTexto)
+	}
 
 	e := &types.Eleicao{
 		Ano:               int16(*ano),

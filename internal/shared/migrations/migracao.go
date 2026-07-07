@@ -125,8 +125,8 @@ func registrarBaselineSeNecessarioPool(ctx context.Context, conn *pgxpool.Conn, 
 	}
 
 	for _, nome := range arquivos {
-		if strings.HasPrefix(nome, "000001_") {
-			return registrarMigrationPool(ctx, conn, nome)
+		if err := registrarMigrationPool(ctx, conn, nome); err != nil {
+			return err
 		}
 	}
 	return nil

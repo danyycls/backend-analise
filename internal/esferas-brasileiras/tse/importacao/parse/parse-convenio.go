@@ -10,9 +10,7 @@ import (
 )
 
 func (p *ProcessadorLeitorCSV) processarConvenioPortal(ctx context.Context, caminho string) (int, error) {
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
 		convenio := types.NovoConvenio()
 		convenio.NumeroConvenio = textoOpcional(registro["NÚMERO CONVÊNIO"])
 		convenio.UF = textoOpcional(registro["UF"])
@@ -48,12 +46,6 @@ func (p *ProcessadorLeitorCSV) processarConvenioPortal(ctx context.Context, cami
 
 		convenio.ID = uuid.Must(uuid.NewV7())
 		p.dados.Convenios = append(p.dados.Convenios, convenio)
-		total++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }

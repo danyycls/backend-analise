@@ -6,7 +6,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/inicializador_banco .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/inicializador_banco ./cmd/migrate/
 
 FROM alpine:3.20
 

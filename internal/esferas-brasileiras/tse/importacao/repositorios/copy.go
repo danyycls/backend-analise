@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,13 +77,13 @@ func formatKey(v any) string {
 	case string:
 		return val
 	case int64:
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatInt(val, 10)
 	case int32:
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatInt(int64(val), 10)
 	case int16:
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatInt(int64(val), 10)
 	case int:
-		return fmt.Sprintf("%d", val)
+		return strconv.Itoa(val)
 	default:
 		return fmt.Sprintf("%v", val)
 	}
@@ -98,6 +99,7 @@ func copyInsertReturning[T any](
 	returningColumns []string,
 	extractValues func(v *T) []any,
 	keyFunc func(v *T) string,
+	resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	log := logger.New("LeitorCSV: Repositorio: copyInsertReturning")
 	resultado := make(map[uuid.UUID]uuid.UUID)
@@ -130,6 +132,9 @@ func copyInsertReturning[T any](
 		if err != nil {
 			return nil, fmt.Errorf("copy %s: %w", nomeTabela, err)
 		}
+		if resultadoMetrica != nil {
+			resultadoMetrica.TempoCOPY += durCopy
+		}
 		log.Info("pgcopy batch copiado",
 			"tabela", nomeTabela, "inicio", i, "fim", end, "copiados", copied, "duracao", durCopy.String())
 		if copied != int64(len(batch)) {
@@ -138,17 +143,22 @@ func copyInsertReturning[T any](
 
 		returningList := strings.Join(returningColumns, ", ")
 
-		keys := strings.Trim(conflictTarget, "() ")
 		selectFromStaging := cfg.stagingName
-		if keys != "" {
-			selectFromStaging = fmt.Sprintf("(SELECT DISTINCT ON (%s) %s FROM %s ORDER BY %s, id) AS %s", keys, colList, cfg.stagingName, keys, cfg.stagingName)
-		}
 
-		mergeSQL := fmt.Sprintf(
-			`INSERT INTO %s (%s) SELECT %s FROM %s ON CONFLICT %s DO UPDATE SET %s RETURNING %s`,
-			cfg.targetName, colList, colList, selectFromStaging,
-			conflictTarget, setClause, returningList,
-		)
+		var mergeSQL string
+		if conflictTarget == "" {
+			mergeSQL = fmt.Sprintf(
+				`INSERT INTO %s (%s) SELECT %s FROM %s RETURNING %s`,
+				cfg.targetName, colList, colList, selectFromStaging,
+				returningList,
+			)
+		} else {
+			mergeSQL = fmt.Sprintf(
+				`INSERT INTO %s (%s) SELECT %s FROM %s ON CONFLICT %s DO UPDATE SET %s RETURNING %s`,
+				cfg.targetName, colList, colList, selectFromStaging,
+				conflictTarget, setClause, returningList,
+			)
+		}
 
 		startMerge := time.Now()
 		rowsResult, err := tx.Query(ctx, mergeSQL)
@@ -156,57 +166,78 @@ func copyInsertReturning[T any](
 		if err != nil {
 			return nil, fmt.Errorf("merge %s: %w", nomeTabela, err)
 		}
+		if resultadoMetrica != nil {
+			resultadoMetrica.TempoMerge += durMerge
+		}
 		log.Info("pgcopy merge executado",
 			"tabela", nomeTabela, "inicio", i, "fim", end, "merge_duracao", durMerge.String())
 
-		keyToList := make(map[string][]*T, len(batch))
-		lookup := make(map[string]*T, len(batch))
-		origIDs := make(map[*T]uuid.UUID, len(batch))
-		for _, v := range batch {
-			k := keyFunc(v)
-			keyToList[k] = append(keyToList[k], v)
-			lookup[k] = v
-			origIDs[v] = getID(v)
+		isPlainInsert := conflictTarget == ""
+
+		var keyToList map[string][]*T
+		var lookup map[string]*T
+		var origIDs map[*T]uuid.UUID
+		if !isPlainInsert {
+			keyToList = make(map[string][]*T, len(batch))
+			lookup = make(map[string]*T, len(batch))
+			origIDs = make(map[*T]uuid.UUID, len(batch))
+			for _, v := range batch {
+				k := keyFunc(v)
+				keyToList[k] = append(keyToList[k], v)
+				lookup[k] = v
+				origIDs[v] = getID(v)
+			}
 		}
 
 		countReturning := 0
+		returningIdx := 0
 		for rowsResult.Next() {
 			vals, err := rowsResult.Values()
 			if err != nil {
 				rowsResult.Close()
 				return nil, fmt.Errorf("scan values %s: %w", nomeTabela, err)
 			}
-			if len(vals) < 2 {
-				continue
-			}
 
 			idRaw := vals[0].([16]byte)
 			idUUID := uuid.UUID(idRaw)
 
-			var chave string
-			if len(vals) == 2 {
-				chave = formatKey(vals[1])
-			} else {
-				parts := make([]string, len(vals)-1)
-				for idx, v := range vals[1:] {
-					parts[idx] = formatKey(v)
-				}
-				chave = strings.Join(parts, "|")
-			}
-
-			if list, ok := keyToList[chave]; ok {
-				for _, entry := range list {
-					antigoID := origIDs[entry]
+			if isPlainInsert {
+				if returningIdx < len(batch) {
+					entry := batch[returningIdx]
+					antigoID := getID(entry)
 					resultado[antigoID] = idUUID
 					setID(entry, idUUID)
 					countReturning++
 				}
-			} else if v, ok := lookup[chave]; ok {
-				antigoID := getID(v)
-				resultado[antigoID] = idUUID
-				setID(v, idUUID)
-				countReturning++
+			} else {
+				if len(vals) < 2 {
+					continue
+				}
+				var chave string
+				if len(vals) == 2 {
+					chave = formatKey(vals[1])
+				} else {
+					parts := make([]string, len(vals)-1)
+					for idx, v := range vals[1:] {
+						parts[idx] = formatKey(v)
+					}
+					chave = strings.Join(parts, "|")
+				}
+				if list, ok := keyToList[chave]; ok {
+					for _, entry := range list {
+						antigoID := origIDs[entry]
+						resultado[antigoID] = idUUID
+						setID(entry, idUUID)
+						countReturning++
+					}
+				} else if v, ok := lookup[chave]; ok {
+					antigoID := getID(v)
+					resultado[antigoID] = idUUID
+					setID(v, idUUID)
+					countReturning++
+				}
 			}
+			returningIdx++
 		}
 		rowsResult.Close()
 		if countReturning == 0 {
@@ -235,7 +266,10 @@ func copyInsertEmLote[T any](
 	columns []string,
 	conflictTarget string,
 	extractValues func(v *T) []any,
+	setClause string,
+	resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
+	log := logger.New("LeitorCSV: Repositorio: copyInsertEmLote")
 	if len(valores) == 0 {
 		return 0, nil
 	}
@@ -260,30 +294,49 @@ func copyInsertEmLote[T any](
 			rows[j] = extractValues(v)
 		}
 
+		startCopy := time.Now()
 		copied, err := tx.CopyFrom(ctx, pgx.Identifier{cfg.stagingName}, columns, pgx.CopyFromRows(rows))
+		durCopy := time.Since(startCopy)
 		if err != nil {
 			return totalInserido, fmt.Errorf("copy %s: %w", nomeTabela, err)
 		}
+		if resultadoMetrica != nil {
+			resultadoMetrica.TempoCOPY += durCopy
+		}
+		log.Info("pgcopy batch copiado",
+			"tabela", nomeTabela, "inicio", i, "fim", end, "copiados", copied, "duracao", durCopy.String())
 		if copied != int64(len(batch)) {
 			return totalInserido, fmt.Errorf("copy %s: esperado %d, copiado %d", nomeTabela, len(batch), copied)
 		}
 
-		keys := strings.Trim(conflictTarget, "() ")
 		selectFromStaging := cfg.stagingName
-		if keys != "" {
-			selectFromStaging = fmt.Sprintf("(SELECT DISTINCT ON (%s) %s FROM %s ORDER BY %s, id) AS %s", keys, colList, cfg.stagingName, keys, cfg.stagingName)
+
+		var mergeSQL string
+		if conflictTarget == "" {
+			mergeSQL = fmt.Sprintf(
+				`INSERT INTO %s (%s) SELECT %s FROM %s`,
+				cfg.targetName, colList, colList, selectFromStaging,
+			)
+		} else {
+			mergeSQL = fmt.Sprintf(
+				`INSERT INTO %s (%s) SELECT %s FROM %s ON CONFLICT %s DO UPDATE SET %s`,
+				cfg.targetName, colList, colList, selectFromStaging,
+				conflictTarget, setClause,
+			)
 		}
 
-		mergeSQL := fmt.Sprintf(
-			`INSERT INTO %s (%s) SELECT %s FROM %s ON CONFLICT %s DO NOTHING`,
-			cfg.targetName, colList, colList, selectFromStaging,
-			conflictTarget,
-		)
-
+		startMerge := time.Now()
 		tag, err := tx.Exec(ctx, mergeSQL)
+		durMerge := time.Since(startMerge)
 		if err != nil {
 			return totalInserido, fmt.Errorf("merge %s: %w", nomeTabela, err)
 		}
+		if resultadoMetrica != nil {
+			resultadoMetrica.TempoMerge += durMerge
+			resultadoMetrica.RegistrosInseridos += tag.RowsAffected()
+		}
+		log.Info("pgcopy merge executado",
+			"tabela", nomeTabela, "inicio", i, "fim", end, "linhas_afetadas", tag.RowsAffected(), "merge_duracao", durMerge.String())
 		totalInserido += tag.RowsAffected()
 
 		if _, err := tx.Exec(ctx, fmt.Sprintf(`TRUNCATE TABLE %s`, cfg.stagingName)); err != nil {

@@ -2,6 +2,7 @@ package parse
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -19,14 +20,15 @@ var poolMapaCSV = sync.Pool{
 	},
 }
 
-func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[string]string) error) error {
+func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[string]string) error) (string, error) {
 	arquivo, err := os.Open(caminho)
 	if err != nil {
-		return fmt.Errorf("falha ao abrir CSV: %w", err)
+		return "", fmt.Errorf("falha ao abrir CSV: %w", err)
 	}
 	defer arquivo.Close()
 
-	leitorBuf := bufio.NewReaderSize(arquivo, 64*1024)
+	h := sha256.New()
+	leitorBuf := bufio.NewReaderSize(io.TeeReader(arquivo, h), 512*1024)
 	decoder := charmap.ISO8859_1.NewDecoder().Reader(leitorBuf)
 	leitor := csv.NewReader(decoder)
 	leitor.Comma = ';'
@@ -35,7 +37,7 @@ func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[s
 
 	cabecalho, err := leitor.Read()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	for i := range cabecalho {
@@ -46,10 +48,10 @@ func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[s
 	for {
 		linha, err := leitor.Read()
 		if errors.Is(err, io.EOF) {
-			return nil
+			return fmt.Sprintf("%x", h.Sum(nil)), nil
 		}
 		if err != nil {
-			return fmt.Errorf("erro de leitura na linha %d: %w", numeroLinha+1, err)
+			return "", fmt.Errorf("erro de leitura na linha %d: %w", numeroLinha+1, err)
 		}
 
 		numeroLinha++
@@ -63,7 +65,7 @@ func lerArquivoCSV(caminho string, callback func(numeroLinha int, registro map[s
 		}
 
 		if err := callback(numeroLinha, registro); err != nil {
-			return err
+			return "", err
 		}
 
 		clear(registro)

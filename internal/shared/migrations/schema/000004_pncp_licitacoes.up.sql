@@ -1,23 +1,23 @@
-CREATE TABLE amparo_legal (
+CREATE TABLE IF NOT EXISTS amparo_legal (
     codigo INTEGER PRIMARY KEY,
     nome TEXT NOT NULL,
     descricao TEXT
 );
 
-CREATE TABLE licitacao_fornecedor (
+CREATE TABLE IF NOT EXISTS licitacao_fornecedor (
     cnpj VARCHAR(14) PRIMARY KEY,
     razao_social TEXT NOT NULL,
     dados_completos JSONB
 );
 
-CREATE TABLE socio (
+CREATE TABLE IF NOT EXISTS socio (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cnpj_cpf_socio VARCHAR(14) NOT NULL UNIQUE,
     nome_socio TEXT
 );
-CREATE INDEX idx_socio_cpf ON socio (cnpj_cpf_socio);
+CREATE INDEX IF NOT EXISTS idx_socio_cpf ON socio (cnpj_cpf_socio);
 
-CREATE TABLE fornecedor_socio (
+CREATE TABLE IF NOT EXISTS fornecedor_socio (
     cnpj_fornecedor VARCHAR(14) NOT NULL REFERENCES licitacao_fornecedor(cnpj) ON DELETE CASCADE,
     socio_id UUID NOT NULL REFERENCES socio(id) ON DELETE CASCADE,
     data_entrada_sociedade TEXT,
@@ -32,9 +32,9 @@ CREATE TABLE fornecedor_socio (
     pais_descricao TEXT,
     PRIMARY KEY (cnpj_fornecedor, socio_id)
 );
-CREATE INDEX idx_fornecedor_socio_socio ON fornecedor_socio (socio_id);
+CREATE INDEX IF NOT EXISTS idx_fornecedor_socio_socio ON fornecedor_socio (socio_id);
 
-CREATE TABLE licitacao_contrato (
+CREATE TABLE IF NOT EXISTS licitacao_contrato (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     numero_controle_pncp VARCHAR(255) UNIQUE NOT NULL,
     cnpj_orgao VARCHAR(14) NOT NULL,
@@ -74,17 +74,14 @@ CREATE TABLE licitacao_contrato (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_contrato_cnpj_orgao ON licitacao_contrato (cnpj_orgao);
-CREATE INDEX idx_contrato_uf ON licitacao_contrato (ug_uf_sigla);
-CREATE INDEX idx_contrato_codigo_ibge ON licitacao_contrato (ug_codigo_ibge);
-CREATE INDEX idx_contrato_data_publicacao ON licitacao_contrato (data_publicacao_pncp);
-CREATE INDEX idx_contrato_ano ON licitacao_contrato (ano_contrato);
-CREATE INDEX idx_contrato_uf_ibge ON licitacao_contrato (ug_uf_sigla, ug_codigo_ibge);
-CREATE INDEX idx_contrato_mes_uf ON licitacao_contrato (date_trunc('month', data_publicacao_pncp), ug_uf_sigla);
-CREATE INDEX idx_contrato_mes_ibge ON licitacao_contrato (date_trunc('month', data_publicacao_pncp), ug_codigo_ibge);
-CREATE INDEX idx_contrato_mes_orgao ON licitacao_contrato (date_trunc('month', data_publicacao_pncp), cnpj_orgao);
+CREATE INDEX IF NOT EXISTS idx_contrato_cnpj_orgao ON licitacao_contrato (cnpj_orgao);
+CREATE INDEX IF NOT EXISTS idx_contrato_uf ON licitacao_contrato (ug_uf_sigla);
+CREATE INDEX IF NOT EXISTS idx_contrato_codigo_ibge ON licitacao_contrato (ug_codigo_ibge);
+CREATE INDEX IF NOT EXISTS idx_contrato_data_publicacao ON licitacao_contrato (data_publicacao_pncp);
+CREATE INDEX IF NOT EXISTS idx_contrato_ano ON licitacao_contrato (ano_contrato);
+CREATE INDEX IF NOT EXISTS idx_contrato_uf_ibge ON licitacao_contrato (ug_uf_sigla, ug_codigo_ibge);
 
-CREATE TABLE licitacao_busca_controle (
+CREATE TABLE IF NOT EXISTS licitacao_busca_controle (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tipo_busca VARCHAR(20) NOT NULL,
     valor_busca VARCHAR(20) NOT NULL,
@@ -97,4 +94,4 @@ CREATE TABLE licitacao_busca_controle (
     CONSTRAINT uq_busca UNIQUE (tipo_busca, valor_busca, ano, mes)
 );
 
-CREATE INDEX idx_busca_controle_data ON licitacao_busca_controle (ultima_atualizacao);
+CREATE INDEX IF NOT EXISTS idx_busca_controle_data ON licitacao_busca_controle (ultima_atualizacao);

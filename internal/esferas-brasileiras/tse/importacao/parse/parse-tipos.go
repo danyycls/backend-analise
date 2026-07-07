@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danyele/podp/internal/shared/logger"
 	"github.com/google/uuid"
 )
 
@@ -48,15 +49,16 @@ func textoOpcional(valor string) string {
 // (ponto) e decimais (vírgula) antes da convertsão. Retorna nil para valores
 // inválidos ou vazios.
 func inteiroOpcional(valor string) *int {
+	log := logger.New("LeitorCSV: ParseTipos: inteiroOpcional")
 	texto := textoOpcional(valor)
 	if texto == "" {
 		return nil
 	}
-	// Remove separadores de milhar e decimais para normalizar.
 	normalizado := strings.ReplaceAll(texto, ".", "")
 	normalizado = strings.ReplaceAll(normalizado, ",", "")
 	inteiro, err := strconv.Atoi(normalizado)
 	if err != nil || inteiro < 0 {
+		log.Warn("valor inteiro invalido - retornando nil", "valor_original", valor, "normalizado", normalizado)
 		return nil
 	}
 	return &inteiro
@@ -76,12 +78,14 @@ func inteiro16Opcional(valor string) *int16 {
 // inteiro64Opcional converte string para *int64 (usado para SQs e códigos
 // grandes do TSE).
 func inteiro64Opcional(valor string) *int64 {
+	log := logger.New("LeitorCSV: ParseTipos: inteiro64Opcional")
 	texto := textoOpcional(valor)
 	if texto == "" {
 		return nil
 	}
 	inteiro, err := strconv.ParseInt(texto, 10, 64)
 	if err != nil || inteiro < 0 {
+		log.Warn("valor inteiro64 invalido - retornando nil", "valor_original", valor, "normalizado", texto)
 		return nil
 	}
 	return &inteiro
@@ -104,6 +108,7 @@ func inteiro64OuZero(valor string) int64 {
 // ponto como separador de milhar e vírgula como separador decimal.
 // Exemplo: "1.234,56" → 1234.56
 func decimalOpcional(valor string) *float64 {
+	log := logger.New("LeitorCSV: ParseTipos: decimalOpcional")
 	texto := textoOpcional(valor)
 	if texto == "" {
 		return nil
@@ -112,6 +117,7 @@ func decimalOpcional(valor string) *float64 {
 	normalizado = strings.ReplaceAll(normalizado, ",", ".")
 	decimal, err := strconv.ParseFloat(normalizado, 64)
 	if err != nil {
+		log.Warn("valor decimal invalido - retornando nil", "valor_original", valor, "normalizado", normalizado)
 		return nil
 	}
 	return &decimal
@@ -133,12 +139,14 @@ func decimalOuZero(valor string) float64 {
 // dataOpcional converte string no formato "dd/mm/aaaa" para *time.Time.
 // Retorna nil se a string estiver vazia ou for inválida.
 func dataOpcional(valor string) *time.Time {
+	log := logger.New("LeitorCSV: ParseTipos: dataOpcional")
 	texto := textoOpcional(valor)
 	if texto == "" {
 		return nil
 	}
 	data, err := time.Parse("02/01/2006", texto)
 	if err != nil {
+		log.Warn("valor data invalido - retornando nil", "valor_original", valor, "texto", texto)
 		return nil
 	}
 	return &data
@@ -193,7 +201,7 @@ func documentoOpcional(valor string) string {
 // entidade.
 func uuidOpcional(valor *uuid.UUID, campo string) *uuid.UUID {
 	if valor == nil || *valor == uuid.Nil {
-		fmt.Printf("uuuid %s obrigatorio", campo)
+		fmt.Printf("uuid %s obrigatorio", campo)
 		return nil
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"sync"
@@ -15,29 +16,61 @@ import (
 	"github.com/danyele/podp/internal/shared/types"
 )
 
+type NivelTiming struct {
+	Copia     time.Duration
+	Mesclar   time.Duration
+	Parse     time.Duration
+	Total     time.Duration
+	Registros int64
+	Operacoes int
+}
+
 type ImportacaoResultado struct {
+	mu                sync.Mutex
 	RegistrosInseridos int64
 	TempoCOPY          time.Duration
 	TempoMerge         time.Duration
+	TempoParse         time.Duration
+	Etapas             map[string]time.Duration
+	Niveis             map[string]*NivelTiming
+	SetEntidade        func(string)
+}
+
+func (r *ImportacaoResultado) RegistrarNivel(nome string, timing NivelTiming) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	atual := r.Niveis[nome]
+	if atual == nil {
+		atual = &NivelTiming{}
+		r.Niveis[nome] = atual
+	}
+	atual.Copia += timing.Copia
+	atual.Mesclar += timing.Mesclar
+	atual.Parse += timing.Parse
+	atual.Total += timing.Total
+	atual.Registros += timing.Registros
+	atual.Operacoes += timing.Operacoes
 }
 
 type Repositorio struct {
-	pool *pgxpool.Pool
+	pool        *pgxpool.Pool // pool de escrita (persistencia)
+	poolLeitura *pgxpool.Pool // pool de leitura (consultas workers)
 	// cache for placeholders to avoid repeated DB roundtrips
 	placeholderMu             sync.Mutex
 	prestacaoPlaceholderCache map[string]uuid.UUID
 }
 
-func Novo(pool *pgxpool.Pool) *Repositorio {
-	return &Repositorio{pool: pool, prestacaoPlaceholderCache: make(map[string]uuid.UUID)}
-}
-
-func (r *Repositorio) Pool() *pgxpool.Pool {
-	return r.pool
+func Novo(pool, poolLeitura *pgxpool.Pool) *Repositorio {
+	return &Repositorio{
+		pool:                     pool,
+		poolLeitura:              poolLeitura,
+		prestacaoPlaceholderCache: make(map[string]uuid.UUID),
+	}
 }
 
 func (r *Repositorio) InserirEleicoesComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.Eleicao, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Eleicao, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "codigo_tse", "ano", "codigo_tipo_eleicao", "nome_tipo_eleicao", "descricao", "data_eleicao"}
 	conflict := "(codigo_tse)"
@@ -48,12 +81,13 @@ func (r *Repositorio) InserirEleicoesComRetorno(
 		func(v *types.Eleicao) []any {
 			return []any{v.ID, v.CodigoTSE, v.Ano, v.CodigoTipoEleicao, v.NomeTipoEleicao, v.Descricao, v.DataEleicao}
 		},
-		func(v *types.Eleicao) string { return fmt.Sprintf("%d", v.CodigoTSE) },
+		func(v *types.Eleicao) string { return strconv.FormatInt(int64(v.CodigoTSE), 10) },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirUnidadesEleitoraisComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.UnidadeEleitoral, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.UnidadeEleitoral, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "sg_uf", "codigo_tse", "nome"}
 	conflict := "(sg_uf, codigo_tse)"
@@ -65,11 +99,12 @@ func (r *Repositorio) InserirUnidadesEleitoraisComRetorno(
 			return []any{v.ID, v.UFSigla, v.CodigoTSE, v.Nome}
 		},
 		func(v *types.UnidadeEleitoral) string { return v.UFSigla + "|" + v.CodigoTSE },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirPartidosComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.Partido, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Partido, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "numero", "sigla", "nome", "federacao_codigo_tse", "federacao_sigla", "federacao_nome", "coligacao_codigo_tse", "coligacao_nome", "coligacao_composicao"}
 	conflict := "(numero)"
@@ -80,12 +115,13 @@ func (r *Repositorio) InserirPartidosComRetorno(
 		func(v *types.Partido) []any {
 			return []any{v.ID, v.Numero, v.Sigla, v.Nome, v.FederacaoCodigoTSE, v.FederacaoSigla, v.FederacaoNome, v.ColigacaoCodigoTSE, v.ColigacaoNome, v.ColigacaoComposicao}
 		},
-		func(v *types.Partido) string { return fmt.Sprintf("%d", v.Numero) },
+		func(v *types.Partido) string { return strconv.FormatInt(int64(v.Numero), 10) },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirCandidatosComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.Candidato, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Candidato, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "sq_candidato", "eleicao_id", "sg_uf", "partido_id", "cargo_codigo", "cargo_nome", "genero_descricao", "cor_raca_descricao", "estado_civil_nome", "grau_instrucao_nome", "ocupacao_codigo", "ocupacao_nome", "numero_candidato", "cpf", "cpf_vice", "nome_completo", "nome_urna", "nome_social", "data_nascimento", "situacao_totalizacao_descricao"}
 	conflict := "(sq_candidato)"
@@ -96,12 +132,13 @@ func (r *Repositorio) InserirCandidatosComRetorno(
 		func(v *types.Candidato) []any {
 			return []any{v.ID, v.SQCandidato, v.EleicaoID, v.UFSigla, v.PartidoID, v.CargoCodigo, v.CargoNome, v.GeneroDescricao, v.CorRacaDescricao, v.EstadoCivilNome, v.GrauInstrucaoNome, v.OcupacaoCodigo, v.OcupacaoNome, v.NumeroCandidato, v.CPF, v.CPFVice, v.NomeCompleto, v.NomeUrna, v.NomeSocial, v.DataNascimento, v.SituacaoTotalizacaoDescricao}
 		},
-		func(v *types.Candidato) string { return fmt.Sprintf("%d", v.SQCandidato) },
+		func(v *types.Candidato) string { return strconv.FormatInt(v.SQCandidato, 10) },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirFornecedoresComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.Fornecedor, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Fornecedor, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "cpf_cnpj", "nome", "nome_rfb", "tipo_fornecedor_codigo", "tipo_fornecedor_descricao", "cnae_codigo", "cnae_descricao", "esfera_partidaria_codigo", "esfera_partidaria_descricao", "sg_uf", "municipio_nome", "sq_candidato_relacionado", "numero_candidato_relacionado", "cargo_codigo_relacionado", "cargo_descricao_relacionada", "partido_numero_relacionado", "partido_sigla_relacionado", "partido_nome_relacionado"}
 	conflict := "(cpf_cnpj)"
@@ -113,11 +150,12 @@ func (r *Repositorio) InserirFornecedoresComRetorno(
 			return []any{v.ID, v.CPFCNPJ, v.Nome, v.NomeRFB, v.TipoFornecedorCodigo, v.TipoFornecedorDescricao, v.CNAECodigo, v.CNAEDescricao, v.EsferaPartidariaCodigo, v.EsferaPartidariaDescricao, v.UFSigla, v.MunicipioNome, v.SQCandidatoRelacionado, v.NumeroCandidatoRelacionado, v.CargoCodigoRelacionado, v.CargoDescricaoRelacionada, v.PartidoNumeroRelacionado, v.PartidoSiglaRelacionado, v.PartidoNomeRelacionado}
 		},
 		func(v *types.Fornecedor) string { return v.CPFCNPJ },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirDoadoresComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.Doador, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Doador, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "cpf_cnpj", "nome", "nome_rfb", "cnae_codigo", "cnae_descricao", "esfera_partidaria_codigo", "esfera_partidaria_descricao", "sg_uf", "municipio_nome", "sq_candidato_relacionado", "numero_candidato_relacionado", "cargo_codigo_relacionado", "cargo_descricao_relacionada", "partido_numero_relacionado", "partido_sigla_relacionado", "partido_nome_relacionado"}
 	conflict := "(cpf_cnpj)"
@@ -129,11 +167,12 @@ func (r *Repositorio) InserirDoadoresComRetorno(
 			return []any{v.ID, v.CPFCNPJ, v.Nome, v.NomeRFB, v.CNAECodigo, v.CNAEDescricao, v.EsferaPartidariaCodigo, v.EsferaPartidariaDescricao, v.UFSigla, v.MunicipioNome, v.SQCandidatoRelacionado, v.NumeroCandidatoRelacionado, v.CargoCodigoRelacionado, v.CargoDescricaoRelacionada, v.PartidoNumeroRelacionado, v.PartidoSiglaRelacionado, v.PartidoNomeRelacionado}
 		},
 		func(v *types.Doador) string { return v.CPFCNPJ },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirPrestacoesComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.PrestacaoContas, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.PrestacaoContas, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "sq_prestador_contas", "eleicao_id", "candidato_id", "partido_id", "sg_uf", "unidade_eleitoral_id", "tipo_prestador", "tipo_prestacao", "data_prestacao", "turno", "cnpj_prestador_conta", "esfera_partidaria_codigo", "esfera_partidaria_descricao"}
 	conflict := "(tipo_prestador, eleicao_id, sq_prestador_contas)"
@@ -145,88 +184,92 @@ func (r *Repositorio) InserirPrestacoesComRetorno(
 			return []any{v.ID, v.SQPrestadorContas, v.EleicaoID, v.CandidatoID, v.PartidoID, v.UFSigla, v.UnidadeEleitoralID, v.TipoPrestador, v.TipoPrestacao, v.DataPrestacao, v.Turno, v.CNPJPrestadorConta, v.EsferaPartidariaCodigo, v.EsferaPartidariaDescricao}
 		},
 		func(v *types.PrestacaoContas) string {
-			return v.TipoPrestador + "|" + v.EleicaoID.String() + "|" + fmt.Sprintf("%d", v.SQPrestadorContas)
+			return v.TipoPrestador + "|" + v.EleicaoID.String() + "|" + strconv.FormatInt(v.SQPrestadorContas, 10)
 		},
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirDespesasCandidato(
-	ctx context.Context, tx pgx.Tx, valores []*types.DespesaCandidato, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.DespesaCandidato, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{"id", "prestacao_contas_id", "candidato_id", "fornecedor_id", "sq_despesa", "tipo_registro", "tipo_documento", "numero_documento", "origem_despesa_codigo", "origem_despesa_descricao", "fonte_despesa_codigo", "fonte_despesa_descricao", "natureza_despesa_codigo", "natureza_despesa_descricao", "especie_recurso_codigo", "especie_recurso_descricao", "sq_parcelamento_despesa", "data_despesa", "descricao", "valor"}
-	conflict := "(sq_despesa, tipo_registro)"
-
-	return copyInsertEmLote(ctx, tx, valores, lote, "despesa_candidato", columns, conflict,
+	return copyInsertEmLote(ctx, tx, valores, lote, "despesa_candidato", columns, "",
 		func(v *types.DespesaCandidato) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.CandidatoID, v.FornecedorID, v.SQDespesa, v.TipoRegistro, v.TipoDocumento, v.NumeroDocumento, v.OrigemDespesaCodigo, v.OrigemDespesaDescricao, v.FonteDespesaCodigo, v.FonteDespesaDescricao, v.NaturezaDespesaCodigo, v.NaturezaDespesaDescricao, v.EspecieRecursoCodigo, v.EspecieRecursoDescricao, v.SQPlanoParcelamento, v.DataDespesa, v.Descricao, v.Valor}
 		},
+		"",
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirDespesasOrgaoPartidario(
-	ctx context.Context, tx pgx.Tx, valores []*types.DespesaOrgaoPartidario, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.DespesaOrgaoPartidario, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{"id", "prestacao_contas_id", "partido_id", "fornecedor_id", "sq_despesa", "tipo_registro", "tipo_documento", "numero_documento", "origem_despesa_codigo", "origem_despesa_descricao", "fonte_despesa_codigo", "fonte_despesa_descricao", "natureza_despesa_codigo", "natureza_despesa_descricao", "especie_recurso_codigo", "especie_recurso_descricao", "sq_parcelamento_despesa", "data_despesa", "descricao", "valor"}
-	conflict := "(sq_despesa, tipo_registro)"
 
-	return copyInsertEmLote(ctx, tx, valores, lote, "despesa_orgao_partidario", columns, conflict,
+	return copyInsertEmLote(ctx, tx, valores, lote, "despesa_orgao_partidario", columns, "",
 		func(v *types.DespesaOrgaoPartidario) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.PartidoID, v.FornecedorID, v.SQDespesa, v.TipoRegistro, v.TipoDocumento, v.NumeroDocumento, v.OrigemDespesaCodigo, v.OrigemDespesaDescricao, v.FonteDespesaCodigo, v.FonteDespesaDescricao, v.NaturezaDespesaCodigo, v.NaturezaDespesaDescricao, v.EspecieRecursoCodigo, v.EspecieRecursoDescricao, v.SQPlanoParcelamento, v.DataDespesa, v.Descricao, v.Valor}
 		},
+		"",
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirReceitasCandidatoComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaCandidato, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaCandidato, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "prestacao_contas_id", "candidato_id", "doador_id", "sq_receita", "fonte_receita_codigo", "fonte_receita_descricao", "origem_receita_codigo", "origem_receita_descricao", "natureza_receita_codigo", "natureza_receita_descricao", "especie_receita_codigo", "especie_receita_descricao", "numero_recibo_doacao", "numero_documento_doacao", "data_receita", "descricao", "valor", "natureza_recurso_estimavel", "genero", "cor_raca"}
-	conflict := "(sq_receita)"
-	setClause := "prestacao_contas_id = EXCLUDED.prestacao_contas_id, candidato_id = EXCLUDED.candidato_id, doador_id = EXCLUDED.doador_id, fonte_receita_codigo = EXCLUDED.fonte_receita_codigo, fonte_receita_descricao = EXCLUDED.fonte_receita_descricao, origem_receita_codigo = EXCLUDED.origem_receita_codigo, origem_receita_descricao = EXCLUDED.origem_receita_descricao, natureza_receita_codigo = EXCLUDED.natureza_receita_codigo, natureza_receita_descricao = EXCLUDED.natureza_receita_descricao, especie_receita_codigo = EXCLUDED.especie_receita_codigo, especie_receita_descricao = EXCLUDED.especie_receita_descricao, numero_recibo_doacao = EXCLUDED.numero_recibo_doacao, numero_documento_doacao = EXCLUDED.numero_documento_doacao, data_receita = EXCLUDED.data_receita, descricao = EXCLUDED.descricao, valor = EXCLUDED.valor, natureza_recurso_estimavel = EXCLUDED.natureza_recurso_estimavel, genero = EXCLUDED.genero, cor_raca = EXCLUDED.cor_raca, updated_at = NOW()"
 	returning := []string{"id", "sq_receita"}
 
-	return copyInsertReturning(ctx, tx, valores, lote, "receita_candidato", columns, conflict, setClause, returning,
+	return copyInsertReturning(ctx, tx, valores, lote, "receita_candidato", columns, "", "", returning,
 		func(v *types.ReceitaCandidato) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.CandidatoID, v.DoadorID, v.SQReceita, v.FonteReceitaCodigo, v.FonteReceitaDescricao, v.OrigemReceitaCodigo, v.OrigemReceitaDescricao, v.NaturezaReceitaCodigo, v.NaturezaReceitaDescricao, v.EspecieReceitaCodigo, v.EspecieReceitaDescricao, v.NumeroReciboDoacao, v.NumeroDocumentoDoacao, v.DataReceita, v.Descricao, v.Valor, v.NaturezaRecursoEstimavel, v.Genero, v.CorRaca}
 		},
-		func(v *types.ReceitaCandidato) string { return fmt.Sprintf("%d", v.SQReceita) },
+		func(v *types.ReceitaCandidato) string { return strconv.FormatInt(v.SQReceita, 10) },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirReceitasOrgaoComRetorno(
-	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaOrgaoPartidario, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaOrgaoPartidario, lote int, resultadoMetrica *ImportacaoResultado,
 ) (map[uuid.UUID]uuid.UUID, error) {
 	columns := []string{"id", "prestacao_contas_id", "partido_id", "doador_id", "sq_receita", "fonte_receita_codigo", "fonte_receita_descricao", "origem_receita_codigo", "origem_receita_descricao", "natureza_receita_codigo", "natureza_receita_descricao", "especie_receita_codigo", "especie_receita_descricao", "numero_recibo_doacao", "numero_documento_doacao", "data_receita", "descricao", "valor"}
-	conflict := "(sq_receita)"
-	setClause := "prestacao_contas_id = EXCLUDED.prestacao_contas_id, partido_id = EXCLUDED.partido_id, doador_id = EXCLUDED.doador_id, fonte_receita_codigo = EXCLUDED.fonte_receita_codigo, fonte_receita_descricao = EXCLUDED.fonte_receita_descricao, origem_receita_codigo = EXCLUDED.origem_receita_codigo, origem_receita_descricao = EXCLUDED.origem_receita_descricao, natureza_receita_codigo = EXCLUDED.natureza_receita_codigo, natureza_receita_descricao = EXCLUDED.natureza_receita_descricao, especie_receita_codigo = EXCLUDED.especie_receita_codigo, especie_receita_descricao = EXCLUDED.especie_receita_descricao, numero_recibo_doacao = EXCLUDED.numero_recibo_doacao, numero_documento_doacao = EXCLUDED.numero_documento_doacao, data_receita = EXCLUDED.data_receita, descricao = EXCLUDED.descricao, valor = EXCLUDED.valor, updated_at = NOW()"
 	returning := []string{"id", "sq_receita"}
 
-	return copyInsertReturning(ctx, tx, valores, lote, "receita_orgao_partidario", columns, conflict, setClause, returning,
+	return copyInsertReturning(ctx, tx, valores, lote, "receita_orgao_partidario", columns, "", "", returning,
 		func(v *types.ReceitaOrgaoPartidario) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.PartidoID, v.DoadorID, v.SQReceita, v.FonteReceitaCodigo, v.FonteReceitaDescricao, v.OrigemReceitaCodigo, v.OrigemReceitaDescricao, v.NaturezaReceitaCodigo, v.NaturezaReceitaDescricao, v.EspecieReceitaCodigo, v.EspecieReceitaDescricao, v.NumeroReciboDoacao, v.NumeroDocumentoDoacao, v.DataReceita, v.Descricao, v.Valor}
 		},
-		func(v *types.ReceitaOrgaoPartidario) string { return fmt.Sprintf("%d", v.SQReceita) },
+		func(v *types.ReceitaOrgaoPartidario) string { return strconv.FormatInt(v.SQReceita, 10) },
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) InserirEmLote(
-	ctx context.Context, tx pgx.Tx, valores interface{}, lote int,
+	ctx context.Context, tx pgx.Tx, valores interface{}, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	switch v := valores.(type) {
 	case []*types.Convenio:
-		return r.inserirConvenios(ctx, tx, v, lote)
+		return r.inserirConvenios(ctx, tx, v, lote, resultadoMetrica)
 	case []*types.ReceitaDoadorOriginarioCandidato:
-		return r.inserirReceitasDoadorOriginarioCandidato(ctx, tx, v, lote)
+		return r.inserirReceitasDoadorOriginarioCandidato(ctx, tx, v, lote, resultadoMetrica)
 	case []*types.ReceitaDoadorOriginarioOrgaoPartidario:
-		return r.inserirReceitasDoadorOriginarioOrgaoPartidario(ctx, tx, v, lote)
-	case []*types.BemCandidato:
-		return r.inserirBensCandidato(ctx, tx, v, lote)
+		return r.inserirReceitasDoadorOriginarioOrgaoPartidario(ctx, tx, v, lote, resultadoMetrica)
+	case map[string]*types.BemCandidato:
+		slice := make([]*types.BemCandidato, 0, len(v))
+		for _, bem := range v {
+			slice = append(slice, bem)
+		}
+		return r.inserirBensCandidato(ctx, tx, slice, lote, resultadoMetrica)
 	default:
 		return 0, fmt.Errorf("tipo nao suportado para InserirEmLote: %T", valores)
 	}
 }
 
 func (r *Repositorio) inserirConvenios(
-	ctx context.Context, tx pgx.Tx, valores []*types.Convenio, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.Convenio, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{
 		"id", "numero_convenio", "uf", "codigo_siafi_municipio", "nome_municipio",
@@ -240,9 +283,7 @@ func (r *Repositorio) inserirConvenios(
 		"data_publicacao", "data_inicio_vigencia", "data_final_vigencia",
 		"valor_contrapartida", "data_ultima_liberacao", "valor_ultima_liberacao",
 	}
-	conflict := "(numero_convenio)"
-
-	return copyInsertEmLote(ctx, tx, valores, lote, "convenio", columns, conflict,
+	return copyInsertEmLote(ctx, tx, valores, lote, "convenio", columns, "",
 		func(v *types.Convenio) []any {
 			return []any{
 				v.ID, v.NumeroConvenio, strNil(v.UF), strNil(v.CodigoSIAFIMunicipio),
@@ -260,37 +301,39 @@ func (r *Repositorio) inserirConvenios(
 				v.ValorContrapartida, v.DataUltimaLiberacao, v.ValorUltimaLiberacao,
 			}
 		},
+		"",
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) inserirReceitasDoadorOriginarioCandidato(
-	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaDoadorOriginarioCandidato, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaDoadorOriginarioCandidato, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{"id", "prestacao_contas_id", "receita_candidato_id", "sq_receita", "documento_doador", "nome_doador", "nome_doador_rfb", "tipo_doador", "cnae_codigo", "cnae_descricao", "data_receita", "descricao", "valor"}
-	conflict := "(sq_receita, documento_doador)"
-
-	return copyInsertEmLote(ctx, tx, valores, lote, "receita_doador_originario_candidato", columns, conflict,
+	return copyInsertEmLote(ctx, tx, valores, lote, "receita_doador_originario_candidato", columns, "",
 		func(v *types.ReceitaDoadorOriginarioCandidato) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.ReceitaCandidatoID, v.SQReceita, v.DocumentoDoador, v.NomeDoador, v.NomeDoadorRFB, v.TipoDoador, v.CNAECodigo, v.CNAEDescricao, v.DataReceita, v.Descricao, v.Valor}
 		},
+		"",
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) inserirReceitasDoadorOriginarioOrgaoPartidario(
-	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaDoadorOriginarioOrgaoPartidario, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.ReceitaDoadorOriginarioOrgaoPartidario, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{"id", "prestacao_contas_id", "receita_orgao_partidario_id", "sq_receita", "documento_doador", "nome_doador", "nome_doador_rfb", "tipo_doador", "cnae_codigo", "cnae_descricao", "data_receita", "descricao", "valor"}
-	conflict := "(sq_receita, documento_doador)"
-
-	return copyInsertEmLote(ctx, tx, valores, lote, "receita_doador_originario_orgao_partidario", columns, conflict,
+	return copyInsertEmLote(ctx, tx, valores, lote, "receita_doador_originario_orgao_partidario", columns, "",
 		func(v *types.ReceitaDoadorOriginarioOrgaoPartidario) []any {
 			return []any{v.ID, v.PrestacaoContasID, v.ReceitaOrgaoPartidarioID, v.SQReceita, v.DocumentoDoador, v.NomeDoador, v.NomeDoadorRFB, v.TipoDoador, v.CNAECodigo, v.CNAEDescricao, v.DataReceita, v.Descricao, v.Valor}
 		},
+		"",
+		resultadoMetrica,
 	)
 }
 
 func (r *Repositorio) inserirBensCandidato(
-	ctx context.Context, tx pgx.Tx, valores []*types.BemCandidato, lote int,
+	ctx context.Context, tx pgx.Tx, valores []*types.BemCandidato, lote int, resultadoMetrica *ImportacaoResultado,
 ) (int64, error) {
 	columns := []string{"id", "candidato_id", "tipo_bem_codigo", "tipo_bem_nome", "numero_ordem", "descricao", "valor", "data_ultima_atualizacao", "hora_ultima_atualizacao"}
 	conflict := "(candidato_id, numero_ordem)"
@@ -303,21 +346,14 @@ func (r *Repositorio) inserirBensCandidato(
 			}
 			return []any{v.ID, v.CandidatoID, v.TipoBemCodigo, v.TipoBemNome, v.NumeroOrdem, v.Descricao, v.Valor, v.DataUltimaAtualizacao, horaUltimaAtualizacao}
 		},
+		"candidato_id = EXCLUDED.candidato_id, tipo_bem_codigo = EXCLUDED.tipo_bem_codigo, tipo_bem_nome = EXCLUDED.tipo_bem_nome, numero_ordem = EXCLUDED.numero_ordem, descricao = EXCLUDED.descricao, valor = EXCLUDED.valor, data_ultima_atualizacao = EXCLUDED.data_ultima_atualizacao, hora_ultima_atualizacao = EXCLUDED.hora_ultima_atualizacao, updated_at = NOW()",
+		resultadoMetrica,
 	)
-}
-
-func (r *Repositorio) ArquivoJaImportado(ctx context.Context, tx pgx.Tx, caminhoRelativo string) (bool, error) {
-	var total int64
-	err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM arquivo_importado WHERE caminho_relativo = $1`, caminhoRelativo).Scan(&total)
-	if err != nil {
-		return false, fmt.Errorf("verificar arquivo importado: %w", err)
-	}
-	return total > 0, nil
 }
 
 func (r *Repositorio) ListarTodosArquivosImportados(ctx context.Context) (map[string]bool, error) {
 	importados := make(map[string]bool)
-	rows, err := r.pool.Query(ctx, `SELECT nome FROM arquivo_importado`)
+	rows, err := r.poolLeitura.Query(ctx, `SELECT nome FROM arquivo_importado`)
 	if err != nil {
 		return nil, fmt.Errorf("listar arquivos importados: %w", err)
 	}
@@ -332,10 +368,10 @@ func (r *Repositorio) ListarTodosArquivosImportados(ctx context.Context) (map[st
 	return importados, rows.Err()
 }
 
-func (r *Repositorio) RegistrarArquivoImportado(ctx context.Context, tx pgx.Tx, caminhoRelativo, nome, tipo, uf string, totalRegistros int) error {
+func (r *Repositorio) RegistrarArquivoImportado(ctx context.Context, tx pgx.Tx, caminhoRelativo, nome, tipo, uf string, totalRegistros int, hashSHA256 string) error {
 	_, err := tx.Exec(ctx,
-		`INSERT INTO arquivo_importado (caminho_relativo, nome, tipo, uf, total_registros) VALUES ($1,$2,$3,$4,$5)`,
-		caminhoRelativo, nome, tipo, uf, totalRegistros,
+		`INSERT INTO arquivo_importado (caminho_relativo, nome, tipo, uf, total_registros, hash_sha256) VALUES ($1,$2,$3,$4,$5,$6)`,
+		caminhoRelativo, nome, tipo, uf, totalRegistros, hashSHA256,
 	)
 	if err != nil {
 		return fmt.Errorf("registrar arquivo importado: %w", err)
@@ -343,14 +379,10 @@ func (r *Repositorio) RegistrarArquivoImportado(ctx context.Context, tx pgx.Tx, 
 	return nil
 }
 
-func (r *Repositorio) AdquirirConexao(ctx context.Context) (*pgxpool.Conn, error) {
-	return r.pool.Acquire(ctx)
-}
-
 // BuscarIDCandidatoPorSQ retorna o UUID de um candidato ja persistido.
 func (r *Repositorio) BuscarIDCandidatoPorSQ(ctx context.Context, sq int64) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := r.pool.QueryRow(ctx, `SELECT id FROM candidato WHERE sq_candidato = $1`, sq).Scan(&id)
+	err := r.poolLeitura.QueryRow(ctx, `SELECT id FROM candidato WHERE sq_candidato = $1`, sq).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.Nil, fmt.Errorf("candidato SQ %d nao encontrado no banco", sq)
@@ -365,7 +397,7 @@ func (r *Repositorio) CarregarCandidatosNoMapa(ctx context.Context, dest map[int
 	if dest == nil {
 		return 0, fmt.Errorf("mapa de candidatos nao informado")
 	}
-	rows, err := r.pool.Query(ctx, `SELECT id, sq_candidato FROM candidato`)
+	rows, err := r.poolLeitura.Query(ctx, `SELECT id, sq_candidato FROM candidato`)
 	if err != nil {
 		return 0, fmt.Errorf("carregar candidatos: %w", err)
 	}

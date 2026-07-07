@@ -26,9 +26,7 @@ import (
 // federação, coligação, cargo, estado civil, grau de instrução, ocupação)
 // antes de montar e armazenar o Candidato.
 func (p *ProcessadorLeitorCSV) processarConsultaCandidato(ctx context.Context, caminho string) (int, error) {
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
 		eleicaoID, err := p.garantirEleicao(ctx, registro["CD_ELEICAO"], registro["ANO_ELEICAO"], registro["CD_TIPO_ELEICAO"], registro["NM_TIPO_ELEICAO"], registro["DS_ELEICAO"], registro["DT_ELEICAO"])
 		if err != nil {
 			return erroLinha(numeroLinha, err)
@@ -51,6 +49,9 @@ func (p *ProcessadorLeitorCSV) processarConsultaCandidato(ctx context.Context, c
 		}
 
 		sqCandidato := inteiro64Opcional(registro["SQ_CANDIDATO"])
+		if sqCandidato == nil {
+			return erroLinha(numeroLinha, fmt.Errorf("SQ_CANDIDATO obrigatorio"))
+		}
 
 		nomeCandidato := textoOpcional(registro["NM_CANDIDATO"])
 
@@ -77,14 +78,9 @@ func (p *ProcessadorLeitorCSV) processarConsultaCandidato(ctx context.Context, c
 		}
 		candidato.ID = uuid.Must(uuid.NewV7())
 		p.dados.Candidatos[*sqCandidato] = candidato
-		total++
+		p.dados.CandidatosPorID[candidato.ID] = candidato
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }
 
 // -----------------------------------------------------------------------------
@@ -161,7 +157,9 @@ func (p *ProcessadorLeitorCSV) garantirIDCandidato(ctx context.Context, sqTexto 
 	if p.buscarCandidatoPorSQ != nil {
 		id, err := p.buscarCandidatoPorSQ(ctx, *sq)
 		if err == nil {
-			p.dados.Candidatos[*sq] = &types.Candidato{ModeloBase: types.ModeloBase{ID: id}, SQCandidato: *sq}
+			c := &types.Candidato{ModeloBase: types.ModeloBase{ID: id}, SQCandidato: *sq}
+			p.dados.Candidatos[*sq] = c
+			p.dados.CandidatosPorID[id] = c
 			return id, nil
 		}
 	}

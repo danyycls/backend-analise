@@ -63,9 +63,11 @@ func (s *LeitorCSVService) LerArquivo(ctx context.Context, processador *parse.Pr
 	}
 
 	return &tipos.ArquivoProcessado{
-		NomeArquivo: arquivo.Nome,
-		Tipo:        arquivo.Tipo,
-		Registros:   n,
+		NomeArquivo:        arquivo.Nome,
+		Tipo:               arquivo.Tipo,
+		Registros:          n,
+		RegistrosIgnorados: processador.RegistrosIgnorados,
+		HashSHA256:         processador.UltimoHash(),
 	}, nil
 }
 

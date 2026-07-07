@@ -23,9 +23,9 @@ import (
 	tseHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/handler"
 	importacaoHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/handler"
 	importacaoRepositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
-	repositorios "github.com/danyele/podp/internal/shared/repositorios"
 	importacaoService "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/service"
 	importacaoUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/usecase"
+	repositorios "github.com/danyele/podp/internal/shared/repositorios"
 	tseUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
 	handlerLigacao "github.com/danyele/podp/internal/ligacao-politica/handler"
 
@@ -236,15 +236,16 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 	leitorCSVService := importacaoService.NovoLeitorCSVService(diretorioCSV)
 
-	pgPool, err := importacaoRepositorios.NovoPool(context.Background(), importacaoRepositorios.ConfigFromEnv())
+	pgPool := db.Pool()
+
+	pgPoolLeitura, err := importacaoRepositorios.NovoPool(context.Background(), importacaoRepositorios.ConfigLeituraFromEnv())
 	if err != nil {
-		log.Fatal("erro ao criar pgx pool", "erro", err)
+		log.Fatal("criar pool de leitura para importacao", "erro", err)
 	}
 
-	poolDB := database.NewPoolDB(pgPool)
-	pncpRepo := repositorios.NovoPNCPRepository(poolDB)
+	pncpRepo := repositorios.NovoPNCPRepository(db)
 
-	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, leitorCSVService)
+	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, pgPoolLeitura, leitorCSVService)
 	leitorCSVHandler := importacaoHandler.NovoLeitorCSVHandler(leitorCSVUseCase)
 
 	normalizarSvc := services.NovoNormalizarDocumentosService()

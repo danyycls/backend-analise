@@ -3,6 +3,7 @@ package parse
 import (
 	"context"
 
+	"github.com/danyele/podp/internal/shared/logger"
 	"github.com/google/uuid"
 
 	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
@@ -11,9 +12,12 @@ import (
 
 type ProcessadorLeitorCSV struct {
 	TamanhoLote          int
+	log                  *logger.Logger
+	ultimoHash           string
 	dados                *tipos.DadosImportacao
 	cacheCandidatos      map[int64]*types.Candidato
 	buscarCandidatoPorSQ func(context.Context, int64) (uuid.UUID, error)
+	RegistrosIgnorados   int
 }
 
 func NovoProcessadorLeitorCSV(tamanhoLote int) *ProcessadorLeitorCSV {
@@ -22,6 +26,7 @@ func NovoProcessadorLeitorCSV(tamanhoLote int) *ProcessadorLeitorCSV {
 	}
 	return &ProcessadorLeitorCSV{
 		TamanhoLote: tamanhoLote,
+		log:         logger.New("LeitorCSV: Processador"),
 		dados:       tipos.NovoDadosImportacao(),
 	}
 }
@@ -35,12 +40,17 @@ func NovoProcessadorComDados(tamanhoLote int, dados *tipos.DadosImportacao) *Pro
 	}
 	return &ProcessadorLeitorCSV{
 		TamanhoLote: tamanhoLote,
+		log:         logger.New("LeitorCSV: Processador"),
 		dados:       dados,
 	}
 }
 
 func (p *ProcessadorLeitorCSV) Dados() *tipos.DadosImportacao {
 	return p.dados
+}
+
+func (p *ProcessadorLeitorCSV) UltimoHash() string {
+	return p.ultimoHash
 }
 
 func (p *ProcessadorLeitorCSV) ComResolverCandidato(fn func(context.Context, int64) (uuid.UUID, error)) {
@@ -55,4 +65,20 @@ func NovoProcessadorComCacheCandidatos(tamanhoLote int, cache map[int64]*types.C
 	p := NovoProcessadorLeitorCSV(tamanhoLote)
 	p.ComCacheCandidatos(cache)
 	return p
+}
+
+func (p *ProcessadorLeitorCSV) processarCSV(caminho string, fn func(numeroLinha int, registro map[string]string) error) (int, error) {
+	total := 0
+	hash, err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+		if err := fn(numeroLinha, registro); err != nil {
+			return err
+		}
+		total++
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	p.ultimoHash = hash
+	return total, nil
 }

@@ -1,14 +1,9 @@
-// Pacote service contém funções auxiliares para a importação de dados
-// eleitorais. Este arquivo implementa os parsers das planilhas de despesas
-// de candidatos (despesas_contratadas_candidatos_ e
-// despesas_pagas_candidatos_).
 package parse
 
 import (
 	"context"
 	"fmt"
-
-	"github.com/danyele/podp/internal/shared/logger"
+	"strconv"
 
 	"github.com/google/uuid"
 
@@ -16,29 +11,21 @@ import (
 	"github.com/danyele/podp/internal/shared/types"
 )
 
-// -----------------------------------------------------------------------------
-// Processamento de despesas contratadas de candidatos.
-// -----------------------------------------------------------------------------
-
-// processarDespesaContratadaCandidato percorre o CSV de despesas contratadas
-// de candidatos. Para cada linha, garante a prestação de contas (criando o
-// candidato sintético se necessário), o fornecedor, e monta a
-// DespesaCandidato com tipo CONTRATADA.
 func (p *ProcessadorLeitorCSV) processarDespesaContratadaCandidato(ctx context.Context, caminho string) (int, error) {
-	log := logger.New("LeitorCSV: Service: processarDespesaContratadaCandidato")
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
 		prestacao, err := p.garantirPrestacaoCandidatoContratada(ctx, registro)
 		if err != nil {
-			log.Info("registro de despesa contratada de candidato ignorado",
-				"caminho", caminho, "linha", numeroLinha, "erro", err)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado", "caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_candidato", registro["SQ_CANDIDATO"], "erro", err)
 			return nil
 		}
 		candidatoID := uuidOpcional(prestacao.CandidatoID, "prestacao_contas.candidato_id")
 		if candidatoID == nil {
-			log.Info("registro de despesa contratada de candidato ignorado - candidato_id vazio",
-				"caminho", caminho, "linha", numeroLinha)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado: candidato_id vazio",
+				"caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_candidato", registro["SQ_CANDIDATO"])
 			return nil
 		}
 
@@ -53,6 +40,7 @@ func (p *ProcessadorLeitorCSV) processarDespesaContratadaCandidato(ctx context.C
 
 		d := &types.DespesaCandidato{
 			PrestacaoContasID:      prestacao.ID,
+			SQPrestadorContas:      prestacao.SQPrestadorContas,
 			CandidatoID:            *candidatoID,
 			FornecedorID:           fornecedorID,
 			SQDespesa:              sqDespesa,
@@ -67,38 +55,25 @@ func (p *ProcessadorLeitorCSV) processarDespesaContratadaCandidato(ctx context.C
 		}
 		d.ID = uuid.Must(uuid.NewV7())
 		p.dados.DespesasCandidato = append(p.dados.DespesasCandidato, d)
-		total++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }
 
-// -----------------------------------------------------------------------------
-// Processamento de despesas pagas de candidatos.
-// -----------------------------------------------------------------------------
-
-// processarDespesaPagaCandidato percorre o CSV de despesas pagas de
-// candidatos. Requer que as despesas contratadas já tenham sido importadas
-// (para existir a prestação de contas). Monta DespesaCandidato com tipo PAGA.
 func (p *ProcessadorLeitorCSV) processarDespesaPagaCandidato(ctx context.Context, caminho string) (int, error) {
-	log := logger.New("LeitorCSV: Service: processarDespesaPagaCandidato")
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
-		prestacao, err := p.garantirPrestacaoPorTipoESQ(ctx, tipos.TipoPrestadorCandidato, registro["SQ_PRESTADOR_CONTAS"])
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+		prestacao, err := p.garantirPrestacaoPorTipoESQ(ctx, tipos.TipoPrestadorCandidato, registro["SQ_PRESTADOR_CONTAS"], registro["CD_ELEICAO"])
 		if err != nil {
-			log.Info("registro de despesa paga de candidato ignorado",
-				"caminho", caminho, "linha", numeroLinha, "erro", err)
-			return nil // Pula a linha, não falha o arquivo
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado", "caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_candidato", registro["SQ_CANDIDATO"], "erro", err)
+			return nil
 		}
 		candidatoID := uuidOpcional(prestacao.CandidatoID, "prestacao_contas.candidato_id")
 		if candidatoID == nil {
-			log.Info("registro de despesa paga de candidato ignorado - candidato_id vazio",
-				"caminho", caminho, "linha", numeroLinha)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado: candidato_id vazio",
+				"caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_candidato", registro["SQ_CANDIDATO"])
 			return nil
 		}
 
@@ -113,6 +88,7 @@ func (p *ProcessadorLeitorCSV) processarDespesaPagaCandidato(ctx context.Context
 
 		d := &types.DespesaCandidato{
 			PrestacaoContasID:        prestacao.ID,
+			SQPrestadorContas:        prestacao.SQPrestadorContas,
 			CandidatoID:              *candidatoID,
 			FornecedorID:             fornecedorID,
 			SQDespesa:                sqDespesa,
@@ -134,24 +110,10 @@ func (p *ProcessadorLeitorCSV) processarDespesaPagaCandidato(ctx context.Context
 		}
 		d.ID = uuid.Must(uuid.NewV7())
 		p.dados.DespesasCandidato = append(p.dados.DespesasCandidato, d)
-		total++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }
 
-// -----------------------------------------------------------------------------
-// Garantia de prestação de contas de candidato para despesas contratadas.
-// -----------------------------------------------------------------------------
-
-// garantirPrestacaoCandidatoContratada busca ou cria uma prestação de contas
-// de candidato a partir dos dados da linha. Diferente do processo normal de
-// consulta, aqui o candidato pode ser criado sinteticamente se ainda não
-// existir no mapa (para arquivos de despesa que precedem a consulta).
 func (p *ProcessadorLeitorCSV) garantirPrestacaoCandidatoContratada(ctx context.Context, registro map[string]string) (*types.PrestacaoContas, error) {
 	eleicaoID, err := p.garantirEleicao(ctx, registro["CD_ELEICAO"], registro["AA_ELEICAO"], registro["CD_TIPO_ELEICAO"], registro["NM_TIPO_ELEICAO"], registro["DS_ELEICAO"], registro["DT_ELEICAO"])
 	if err != nil {
@@ -181,20 +143,16 @@ func (p *ProcessadorLeitorCSV) garantirPrestacaoCandidatoContratada(ctx context.
 
 	candidato, existe := p.dados.Candidatos[*sqCandidato]
 	if !existe {
-		const sqCandidatoNaoEncontrado int64 = 1
-		dummy, ok := p.dados.Candidatos[sqCandidatoNaoEncontrado]
-		if !ok {
-			dummy = &types.Candidato{
-				SQCandidato:  sqCandidatoNaoEncontrado,
-				EleicaoID:    eleicaoID,
-				UFSigla:      ufSigla,
-				NomeCompleto: "CANDIDATO NAO ENCONTRADO",
-			}
-			dummy.ID = uuid.Must(uuid.NewV7())
-			p.dados.Candidatos[sqCandidatoNaoEncontrado] = dummy
+		candidato = &types.Candidato{
+			SQCandidato:  *sqCandidato,
+			EleicaoID:    eleicaoID,
+			UFSigla:      ufSigla,
+			NomeCompleto: "__PENDENTE_SQ_" + strconv.FormatInt(*sqCandidato, 10),
+			NomeUrna:     "__PENDENTE",
 		}
-		// candidato nao encontrado: usamos dummy SQ=1 sem log para reduzir ruido
-		candidato = dummy
+		candidato.ID = uuid.Must(uuid.NewV7())
+		p.dados.Candidatos[*sqCandidato] = candidato
+		p.dados.CandidatosPorID[candidato.ID] = candidato
 	}
 
 	sqPrestador := inteiro64Opcional(registro["SQ_PRESTADOR_CONTAS"])

@@ -97,175 +97,110 @@ func remapearCandidatoIDEmDados(d *tipos.DadosImportacao, antigo, novo uuid.UUID
 	}
 }
 
+func appendSlice[T any](dst []T, src []T) []T {
+	if len(src) == 0 {
+		return dst
+	}
+	novaCap := len(dst) + len(src)
+	if cap(dst) < novaCap {
+		nova := make([]T, len(dst), novaCap)
+		copy(nova, dst)
+		dst = nova
+	}
+	return append(dst, src...)
+}
+
+func mergeMap[K comparable, V any](dst, src map[K]V) {
+	if dst == nil || len(src) == 0 {
+		return
+	}
+	for k, v := range src {
+		if _, ok := dst[k]; !ok {
+			dst[k] = v
+		}
+	}
+}
+
+func limparMap[K comparable, V any](m map[K]V) {
+	for k := range m {
+		delete(m, k)
+	}
+}
+
+func limparSrc(dados *tipos.DadosImportacao, incluirDimensoes bool) {
+	limparMap(dados.Fornecedores)
+	limparMap(dados.Doadores)
+	limparMap(dados.Prestacoes)
+	limparMap(dados.PrestacoesPorTipoESQ)
+	limparMap(dados.PrestacoesPorID)
+	limparMap(dados.ReceitasCandidatoPorSQ)
+	limparMap(dados.ReceitasOrgaoPorSQ)
+	limparMap(dados.BensCandidato)
+	dados.Convenios = nil
+	dados.DespesasCandidato = nil
+	dados.DespesasOrgaoPartidario = nil
+	dados.ReceitasCandidato = nil
+	dados.ReceitasOrgaoPartidario = nil
+	dados.ReceitasDoadorOriginarioCandidato = nil
+	dados.ReceitasDoadorOriginarioOrgaoPartidario = nil
+	if incluirDimensoes {
+		limparMap(dados.Eleicoes)
+		limparMap(dados.UnidadesEleitorais)
+		limparMap(dados.Partidos)
+		limparMap(dados.Candidatos)
+		limparMap(dados.CandidatosPorID)
+	}
+}
+
+func mergeTransacional(dst, src *tipos.DadosImportacao) {
+	mergeMap(dst.Fornecedores, src.Fornecedores)
+	mergeMap(dst.Doadores, src.Doadores)
+	mergeMap(dst.Prestacoes, src.Prestacoes)
+	mergeMap(dst.PrestacoesPorTipoESQ, src.PrestacoesPorTipoESQ)
+	mergeMap(dst.PrestacoesPorID, src.PrestacoesPorID)
+	mergeMap(dst.ReceitasCandidatoPorSQ, src.ReceitasCandidatoPorSQ)
+	mergeMap(dst.ReceitasOrgaoPorSQ, src.ReceitasOrgaoPorSQ)
+
+	dst.DespesasCandidato = appendSlice(dst.DespesasCandidato, src.DespesasCandidato)
+	dst.DespesasOrgaoPartidario = appendSlice(dst.DespesasOrgaoPartidario, src.DespesasOrgaoPartidario)
+	dst.ReceitasCandidato = appendSlice(dst.ReceitasCandidato, src.ReceitasCandidato)
+	dst.ReceitasOrgaoPartidario = appendSlice(dst.ReceitasOrgaoPartidario, src.ReceitasOrgaoPartidario)
+	dst.ReceitasDoadorOriginarioCandidato = appendSlice(dst.ReceitasDoadorOriginarioCandidato, src.ReceitasDoadorOriginarioCandidato)
+	dst.ReceitasDoadorOriginarioOrgaoPartidario = appendSlice(dst.ReceitasDoadorOriginarioOrgaoPartidario, src.ReceitasDoadorOriginarioOrgaoPartidario)
+	dst.Convenios = appendSlice(dst.Convenios, src.Convenios)
+	mergeMap(dst.BensCandidato, src.BensCandidato)
+}
+
 func MergeDados(dst, src *tipos.DadosImportacao) {
 	if dst == nil || src == nil {
 		return
 	}
-
 	mergeDimensoesComRemapeamento(dst, src)
 
 	for k, v := range src.Candidatos {
 		if existente, ok := dst.Candidatos[k]; ok {
 			if existente.ID != v.ID {
 				remapearCandidatoIDEmDados(src, v.ID, existente.ID)
+				delete(src.CandidatosPorID, v.ID)
+				src.CandidatosPorID[existente.ID] = v
 			}
 		} else {
 			dst.Candidatos[k] = v
-		}
-	}
-	for k, v := range src.Fornecedores {
-		if _, ok := dst.Fornecedores[k]; !ok {
-			dst.Fornecedores[k] = v
-		}
-	}
-	for k, v := range src.Doadores {
-		if _, ok := dst.Doadores[k]; !ok {
-			dst.Doadores[k] = v
-		}
-	}
-	for k, v := range src.Prestacoes {
-		if _, ok := dst.Prestacoes[k]; !ok {
-			dst.Prestacoes[k] = v
-		}
-	}
-	for k, v := range src.PrestacoesPorTipoESQ {
-		if _, ok := dst.PrestacoesPorTipoESQ[k]; !ok {
-			dst.PrestacoesPorTipoESQ[k] = v
-		}
-	}
-	for k, v := range src.ReceitasCandidatoPorSQ {
-		if _, ok := dst.ReceitasCandidatoPorSQ[k]; !ok {
-			dst.ReceitasCandidatoPorSQ[k] = v
-		}
-	}
-	for k, v := range src.ReceitasOrgaoPorSQ {
-		if _, ok := dst.ReceitasOrgaoPorSQ[k]; !ok {
-			dst.ReceitasOrgaoPorSQ[k] = v
+			dst.CandidatosPorID[v.ID] = v
 		}
 	}
 
-	if len(src.DespesasCandidato) > 0 {
-		dst.DespesasCandidato = append(dst.DespesasCandidato, src.DespesasCandidato...)
-	}
-	if len(src.DespesasOrgaoPartidario) > 0 {
-		dst.DespesasOrgaoPartidario = append(dst.DespesasOrgaoPartidario, src.DespesasOrgaoPartidario...)
-	}
-	if len(src.ReceitasCandidato) > 0 {
-		dst.ReceitasCandidato = append(dst.ReceitasCandidato, src.ReceitasCandidato...)
-	}
-	if len(src.ReceitasOrgaoPartidario) > 0 {
-		dst.ReceitasOrgaoPartidario = append(dst.ReceitasOrgaoPartidario, src.ReceitasOrgaoPartidario...)
-	}
-	if len(src.ReceitasDoadorOriginarioCandidato) > 0 {
-		dst.ReceitasDoadorOriginarioCandidato = append(dst.ReceitasDoadorOriginarioCandidato, src.ReceitasDoadorOriginarioCandidato...)
-	}
-	if len(src.ReceitasDoadorOriginarioOrgaoPartidario) > 0 {
-		dst.ReceitasDoadorOriginarioOrgaoPartidario = append(dst.ReceitasDoadorOriginarioOrgaoPartidario, src.ReceitasDoadorOriginarioOrgaoPartidario...)
-	}
-	if len(src.Convenios) > 0 {
-		dst.Convenios = append(dst.Convenios, src.Convenios...)
-	}
-	if len(src.BensCandidato) > 0 {
-		dst.BensCandidato = append(dst.BensCandidato, src.BensCandidato...)
-	}
-
-	src.Convenios = nil
-	src.Eleicoes = nil
-	src.UnidadesEleitorais = nil
-	src.Partidos = nil
-	src.Candidatos = nil
-	src.Fornecedores = nil
-	src.Doadores = nil
-	src.Prestacoes = nil
-	src.PrestacoesPorTipoESQ = nil
-	src.ReceitasCandidatoPorSQ = nil
-	src.ReceitasOrgaoPorSQ = nil
-	src.DespesasCandidato = nil
-	src.DespesasOrgaoPartidario = nil
-	src.ReceitasCandidato = nil
-	src.ReceitasOrgaoPartidario = nil
-	src.ReceitasDoadorOriginarioCandidato = nil
-	src.ReceitasDoadorOriginarioOrgaoPartidario = nil
-	src.BensCandidato = nil
+	mergeTransacional(dst, src)
+	limparSrc(src, true)
 }
 
 func MergeDadosTransacionais(dst, src *tipos.DadosImportacao) {
 	if dst == nil || src == nil {
 		return
 	}
-
 	mergeDimensoesComRemapeamento(dst, src)
-
-	for k, v := range src.Fornecedores {
-		if _, ok := dst.Fornecedores[k]; !ok {
-			dst.Fornecedores[k] = v
-		}
-	}
-	for k, v := range src.Doadores {
-		if _, ok := dst.Doadores[k]; !ok {
-			dst.Doadores[k] = v
-		}
-	}
-	for k, v := range src.Prestacoes {
-		if _, ok := dst.Prestacoes[k]; !ok {
-			dst.Prestacoes[k] = v
-		}
-	}
-	for k, v := range src.PrestacoesPorTipoESQ {
-		if _, ok := dst.PrestacoesPorTipoESQ[k]; !ok {
-			dst.PrestacoesPorTipoESQ[k] = v
-		}
-	}
-	for k, v := range src.ReceitasCandidatoPorSQ {
-		if _, ok := dst.ReceitasCandidatoPorSQ[k]; !ok {
-			dst.ReceitasCandidatoPorSQ[k] = v
-		}
-	}
-	for k, v := range src.ReceitasOrgaoPorSQ {
-		if _, ok := dst.ReceitasOrgaoPorSQ[k]; !ok {
-			dst.ReceitasOrgaoPorSQ[k] = v
-		}
-	}
-
-	if len(src.DespesasCandidato) > 0 {
-		dst.DespesasCandidato = append(dst.DespesasCandidato, src.DespesasCandidato...)
-	}
-	if len(src.DespesasOrgaoPartidario) > 0 {
-		dst.DespesasOrgaoPartidario = append(dst.DespesasOrgaoPartidario, src.DespesasOrgaoPartidario...)
-	}
-	if len(src.ReceitasCandidato) > 0 {
-		dst.ReceitasCandidato = append(dst.ReceitasCandidato, src.ReceitasCandidato...)
-	}
-	if len(src.ReceitasOrgaoPartidario) > 0 {
-		dst.ReceitasOrgaoPartidario = append(dst.ReceitasOrgaoPartidario, src.ReceitasOrgaoPartidario...)
-	}
-	if len(src.ReceitasDoadorOriginarioCandidato) > 0 {
-		dst.ReceitasDoadorOriginarioCandidato = append(dst.ReceitasDoadorOriginarioCandidato, src.ReceitasDoadorOriginarioCandidato...)
-	}
-	if len(src.ReceitasDoadorOriginarioOrgaoPartidario) > 0 {
-		dst.ReceitasDoadorOriginarioOrgaoPartidario = append(dst.ReceitasDoadorOriginarioOrgaoPartidario, src.ReceitasDoadorOriginarioOrgaoPartidario...)
-	}
-	if len(src.Convenios) > 0 {
-		dst.Convenios = append(dst.Convenios, src.Convenios...)
-	}
-	if len(src.BensCandidato) > 0 {
-		dst.BensCandidato = append(dst.BensCandidato, src.BensCandidato...)
-	}
-
-	src.Convenios = nil
-	src.Fornecedores = nil
-	src.Doadores = nil
-	src.Prestacoes = nil
-	src.PrestacoesPorTipoESQ = nil
-	src.ReceitasCandidatoPorSQ = nil
-	src.ReceitasOrgaoPorSQ = nil
-	src.DespesasCandidato = nil
-	src.DespesasOrgaoPartidario = nil
-	src.ReceitasCandidato = nil
-	src.ReceitasOrgaoPartidario = nil
-	src.ReceitasDoadorOriginarioCandidato = nil
-	src.ReceitasDoadorOriginarioOrgaoPartidario = nil
-	src.BensCandidato = nil
+	mergeTransacional(dst, src)
+	limparSrc(src, false)
 }
 
 func mergeDimensoesComRemapeamento(dst, src *tipos.DadosImportacao) {

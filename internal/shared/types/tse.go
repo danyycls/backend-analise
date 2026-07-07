@@ -135,6 +135,7 @@ type PrestacaoContas struct {
 type DespesaCandidato struct {
 	ModeloBase
 	PrestacaoContasID        uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas        int64      `json:"-"`
 	CandidatoID              uuid.UUID  `json:"candidato_id"`
 	FornecedorID             *uuid.UUID `json:"fornecedor_id,omitempty"`
 	SQDespesa                int64      `json:"sq_despesa"`
@@ -158,6 +159,7 @@ type DespesaCandidato struct {
 type DespesaOrgaoPartidario struct {
 	ModeloBase
 	PrestacaoContasID        uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas        int64      `json:"-"`
 	PartidoID                uuid.UUID  `json:"partido_id"`
 	FornecedorID             *uuid.UUID `json:"fornecedor_id,omitempty"`
 	SQDespesa                int64      `json:"sq_despesa"`
@@ -181,6 +183,7 @@ type DespesaOrgaoPartidario struct {
 type ReceitaCandidato struct {
 	ModeloBase
 	PrestacaoContasID        uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas        int64      `json:"-"`
 	CandidatoID              uuid.UUID  `json:"candidato_id"`
 	DoadorID                 *uuid.UUID `json:"doador_id,omitempty"`
 	SQReceita                int64      `json:"sq_receita"`
@@ -205,6 +208,7 @@ type ReceitaCandidato struct {
 type ReceitaOrgaoPartidario struct {
 	ModeloBase
 	PrestacaoContasID        uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas        int64      `json:"-"`
 	PartidoID                uuid.UUID  `json:"partido_id"`
 	DoadorID                 *uuid.UUID `json:"doador_id,omitempty"`
 	SQReceita                int64      `json:"sq_receita"`
@@ -226,6 +230,7 @@ type ReceitaOrgaoPartidario struct {
 type ReceitaDoadorOriginarioCandidato struct {
 	ModeloBase
 	PrestacaoContasID  uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas  int64      `json:"-"`
 	ReceitaCandidatoID *uuid.UUID `json:"receita_candidato_id,omitempty"`
 	SQReceita          int64      `json:"sq_receita"`
 	DocumentoDoador    string     `json:"documento_doador,omitempty"`
@@ -242,6 +247,7 @@ type ReceitaDoadorOriginarioCandidato struct {
 type ReceitaDoadorOriginarioOrgaoPartidario struct {
 	ModeloBase
 	PrestacaoContasID        uuid.UUID  `json:"prestacao_contas_id"`
+	SQPrestadorContas        int64      `json:"-"`
 	ReceitaOrgaoPartidarioID *uuid.UUID `json:"receita_orgao_partidario_id,omitempty"`
 	SQReceita                int64      `json:"sq_receita"`
 	DocumentoDoador          string     `json:"documento_doador,omitempty"`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -62,7 +63,7 @@ func ConfigFromEnv() Config {
 		User:            getEnv("DB_USER", "postgres"),
 		Password:        getEnv("DB_PASSWORD", "postgres"),
 		Database:        getEnv("DB_NAME", "tse_data"),
-		MaxConns:        20,
+		MaxConns:        getEnvInt32("DB_MAX_CONNS", 40),
 		MinConns:        4,
 		MaxConnLifetime: 30 * time.Minute,
 		MaxConnIdleTime: 5 * time.Minute,
@@ -72,6 +73,15 @@ func ConfigFromEnv() Config {
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
+	}
+	return fallback
+}
+
+func getEnvInt32(key string, fallback int32) int32 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 32); err == nil && n > 0 {
+			return int32(n)
+		}
 	}
 	return fallback
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type DB interface {
@@ -13,4 +14,5 @@ type DB interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	Begin(ctx context.Context) (pgx.Tx, error)
 	Ping(ctx context.Context) error
+	Pool() *pgxpool.Pool
 }

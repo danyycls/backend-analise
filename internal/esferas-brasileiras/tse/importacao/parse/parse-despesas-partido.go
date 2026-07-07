@@ -1,7 +1,3 @@
-// Pacote service contém funções auxiliares para a importação de dados
-// eleitorais. Este arquivo implementa os parsers das planilhas de despesas
-// de órgãos partidários (despesas_contratadas_orgaos_partidarios_ e
-// despesas_pagas_orgaos_partidarios_).
 package parse
 
 import (
@@ -9,36 +5,27 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/danyele/podp/internal/shared/logger"
-
 	"github.com/google/uuid"
 
 	tipos "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/types"
 	"github.com/danyele/podp/internal/shared/types"
 )
 
-// -----------------------------------------------------------------------------
-// Processamento de despesas contratadas de órgãos partidários.
-// -----------------------------------------------------------------------------
-
-// processarDespesaContratadaOrgaoPartidario percorre o CSV de despesas
-// contratadas de órgãos partidários. Para cada linha, garante a prestação
-// de contas e monta a DespesaOrgaoPartidario com tipo CONTRATADA.
 func (p *ProcessadorLeitorCSV) processarDespesaContratadaOrgaoPartidario(ctx context.Context, caminho string) (int, error) {
-	log := logger.New("LeitorCSV: Service: processarDespesaContratadaOrgaoPartidario")
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
 		prestacao, err := p.garantirPrestacaoOrgaoContratada(ctx, registro)
 		if err != nil {
-			log.Info("registro de despesa contratada de orgao partidario ignorado",
-				"caminho", caminho, "linha", numeroLinha, "erro", err)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado", "caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_prestador_contas", registro["SQ_PRESTADOR_CONTAS"], "erro", err)
 			return nil
 		}
 		partidoID := uuidOpcional(prestacao.PartidoID, "prestacao_contas.partido_id")
 		if partidoID == nil {
-			log.Info("registro de despesa contratada de orgao partidario ignorado - partido_id vazio",
-				"caminho", caminho, "linha", numeroLinha)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado: partido_id vazio",
+				"caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_prestador_contas", registro["SQ_PRESTADOR_CONTAS"])
 			return nil
 		}
 
@@ -53,6 +40,7 @@ func (p *ProcessadorLeitorCSV) processarDespesaContratadaOrgaoPartidario(ctx con
 
 		d := &types.DespesaOrgaoPartidario{
 			PrestacaoContasID:      prestacao.ID,
+			SQPrestadorContas:      prestacao.SQPrestadorContas,
 			PartidoID:              *partidoID,
 			FornecedorID:           fornecedorID,
 			SQDespesa:              sqDespesa,
@@ -67,38 +55,25 @@ func (p *ProcessadorLeitorCSV) processarDespesaContratadaOrgaoPartidario(ctx con
 		}
 		d.ID = uuid.Must(uuid.NewV7())
 		p.dados.DespesasOrgaoPartidario = append(p.dados.DespesasOrgaoPartidario, d)
-		total++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }
 
-// -----------------------------------------------------------------------------
-// Processamento de despesas pagas de órgãos partidários.
-// -----------------------------------------------------------------------------
-
-// processarDespesaPagaOrgaoPartidario percorre o CSV de despesas pagas de
-// órgãos partidários. Requer que as despesas contratadas já tenham sido
-// importadas. Monta DespesaOrgaoPartidario com tipo PAGA.
 func (p *ProcessadorLeitorCSV) processarDespesaPagaOrgaoPartidario(ctx context.Context, caminho string) (int, error) {
-	log := logger.New("LeitorCSV: Service: processarDespesaPagaOrgaoPartidario")
-	total := 0
-
-	err := lerArquivoCSV(caminho, func(numeroLinha int, registro map[string]string) error {
-		prestacao, err := p.garantirPrestacaoPorTipoESQ(ctx, tipos.TipoPrestadorOrgaoPartidario, registro["SQ_PRESTADOR_CONTAS"])
+	return p.processarCSV(caminho, func(numeroLinha int, registro map[string]string) error {
+		prestacao, err := p.garantirPrestacaoPorTipoESQ(ctx, tipos.TipoPrestadorOrgaoPartidario, registro["SQ_PRESTADOR_CONTAS"], registro["CD_ELEICAO"])
 		if err != nil {
-			log.Info("registro de despesa paga de orgao partidario ignorado",
-				"caminho", caminho, "linha", numeroLinha, "erro", err)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado", "caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_prestador_contas", registro["SQ_PRESTADOR_CONTAS"], "erro", err)
 			return nil
 		}
 		partidoID := uuidOpcional(prestacao.PartidoID, "prestacao_contas.partido_id")
 		if partidoID == nil {
-			log.Info("registro de despesa paga de orgao partidario ignorado - partido_id vazio",
-				"caminho", caminho, "linha", numeroLinha)
+			p.RegistrosIgnorados++
+			p.log.Warn("registro ignorado: partido_id vazio",
+				"caminho", caminho, "linha", numeroLinha,
+				"sq_despesa", registro["SQ_DESPESA"], "sq_prestador_contas", registro["SQ_PRESTADOR_CONTAS"])
 			return nil
 		}
 
@@ -112,6 +87,7 @@ func (p *ProcessadorLeitorCSV) processarDespesaPagaOrgaoPartidario(ctx context.C
 
 		d := &types.DespesaOrgaoPartidario{
 			PrestacaoContasID:        prestacao.ID,
+			SQPrestadorContas:        prestacao.SQPrestadorContas,
 			PartidoID:                *partidoID,
 			FornecedorID:             fornecedorID,
 			SQDespesa:                sqDespesa,
@@ -133,30 +109,13 @@ func (p *ProcessadorLeitorCSV) processarDespesaPagaOrgaoPartidario(ctx context.C
 		}
 		d.ID = uuid.Must(uuid.NewV7())
 		p.dados.DespesasOrgaoPartidario = append(p.dados.DespesasOrgaoPartidario, d)
-		total++
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-
-	return total, nil
 }
 
-// -----------------------------------------------------------------------------
-// Garantia de prestação de contas de órgão partidário para despesas
-// contratadas.
-// -----------------------------------------------------------------------------
-
-// garantirPrestacaoOrgaoContratada busca ou cria uma prestação de contas
-// de órgão partidário. Diferente da prestação de candidato, usa
-// CD_ELEICAO com fallback para AA_ELEICAO (pois o código da eleição pode
-// vir apenas no ano) e a UF é opcional.
 func (p *ProcessadorLeitorCSV) garantirPrestacaoOrgaoContratada(ctx context.Context, registro map[string]string) (*types.PrestacaoContas, error) {
 	anoEleicao := inteiroOpcional(registro["AA_ELEICAO"])
 
-	// Para órgãos partidários, o código da eleição pode ser apenas o ano;
-	// CD_ELEICAO tem precedência sobre AA_ELEICAO quando presente.
 	codigoEleicao := anoEleicao
 	if codigo := inteiroOpcional(registro["CD_ELEICAO"]); codigo != nil {
 		codigoEleicao = codigo
@@ -184,6 +143,9 @@ func (p *ProcessadorLeitorCSV) garantirPrestacaoOrgaoContratada(ctx context.Cont
 	}
 
 	sqPrestador := inteiro64Opcional(registro["SQ_PRESTADOR_CONTAS"])
+	if sqPrestador == nil {
+		return nil, fmt.Errorf("SQ_PRESTADOR_CONTAS obrigatorio")
+	}
 
 	chavePrest := chavePrestacaoNatural(tipos.TipoPrestadorOrgaoPartidario, eleicaoID, *sqPrestador)
 	if existente, ok := p.dados.Prestacoes[chavePrest]; ok {

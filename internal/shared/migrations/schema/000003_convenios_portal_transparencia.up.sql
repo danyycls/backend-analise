@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TABLE convenio (
+CREATE TABLE IF NOT EXISTS convenio (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     numero_convenio VARCHAR(50) NOT NULL,
     uf VARCHAR(2),
@@ -35,11 +35,11 @@ CREATE TABLE convenio (
     CONSTRAINT uq_convenio_numero UNIQUE (numero_convenio)
 );
 
-CREATE INDEX idx_convenio_uf ON convenio (uf);
-CREATE INDEX idx_convenio_nome_municipio ON convenio (nome_municipio);
-CREATE INDEX idx_convenio_nome_convenente ON convenio (nome_convenente);
-CREATE INDEX idx_convenio_tipo_instrumento ON convenio (tipo_instrumento);
-CREATE INDEX idx_convenio_situacao ON convenio (situacao_convenio);
-CREATE INDEX idx_convenio_objeto_trgm ON convenio USING gin (objeto_convenio gin_trgm_ops);
-CREATE INDEX idx_convenio_valores ON convenio (valor_convenio, valor_liberado);
-CREATE INDEX idx_convenio_datas ON convenio (data_publicacao, data_inicio_vigencia);
+CREATE INDEX IF NOT EXISTS idx_convenio_uf ON convenio (uf);
+CREATE INDEX IF NOT EXISTS idx_convenio_nome_municipio ON convenio (nome_municipio);
+CREATE INDEX IF NOT EXISTS idx_convenio_nome_convenente ON convenio (nome_convenente);
+CREATE INDEX IF NOT EXISTS idx_convenio_tipo_instrumento ON convenio (tipo_instrumento);
+CREATE INDEX IF NOT EXISTS idx_convenio_situacao ON convenio (situacao_convenio);
+CREATE INDEX IF NOT EXISTS idx_convenio_objeto_trgm ON convenio USING gin (objeto_convenio gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_convenio_valores ON convenio (valor_convenio, valor_liberado);
+CREATE INDEX IF NOT EXISTS idx_convenio_datas ON convenio (data_publicacao, data_inicio_vigencia);

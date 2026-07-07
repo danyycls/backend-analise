@@ -11,6 +11,150 @@ import (
 	"github.com/danyele/podp/internal/shared/types"
 )
 
+func uuidStr(id *uuid.UUID) string {
+	if id == nil {
+		return "<nil>"
+	}
+	return id.String()
+}
+
+// ValidarFKsEmMemoria percorre os dados acumulados e verifica que cada FK
+// aponta para uma entidade existente nos mapas de dimensoes. Nao bloqueia
+// a persistencia — apenas loga violacoes. Retorna o total encontrado.
+func indexFromMap[K comparable, V any](m map[K]V, idFn func(V) uuid.UUID) map[uuid.UUID]bool {
+	idx := make(map[uuid.UUID]bool, len(m))
+	for _, v := range m {
+		idx[idFn(v)] = true
+	}
+	return idx
+}
+
+func checkFK(idx map[uuid.UUID]bool, id *uuid.UUID) bool {
+	return id == nil || idx[*id]
+}
+
+func checkFKDirect(idx map[uuid.UUID]bool, id uuid.UUID) bool {
+	return idx[id]
+}
+
+func ValidarFKsEmMemoria(dados *tipos.DadosImportacao) int {
+	if dados == nil {
+		return 0
+	}
+	log := logger.New("LeitorCSV: ValidarFKsEmMemoria")
+	violacoes := 0
+
+	ei := indexFromMap(dados.Eleicoes, func(e *types.Eleicao) uuid.UUID { return e.ID })
+	pi := indexFromMap(dados.Partidos, func(e *types.Partido) uuid.UUID { return e.ID })
+	ui := indexFromMap(dados.UnidadesEleitorais, func(e *types.UnidadeEleitoral) uuid.UUID { return e.ID })
+	fi := indexFromMap(dados.Fornecedores, func(e *types.Fornecedor) uuid.UUID { return e.ID })
+	di := indexFromMap(dados.Doadores, func(e *types.Doador) uuid.UUID { return e.ID })
+	ci := indexFromMap(dados.Candidatos, func(e *types.Candidato) uuid.UUID { return e.ID })
+	rci := indexFromMap(dados.ReceitasCandidatoPorSQ, func(e *types.ReceitaCandidato) uuid.UUID { return e.ID })
+	roi := indexFromMap(dados.ReceitasOrgaoPorSQ, func(e *types.ReceitaOrgaoPartidario) uuid.UUID { return e.ID })
+
+	for _, c := range dados.Candidatos {
+		if !checkFKDirect(ei, c.EleicaoID) {
+			log.Warn("FK invalida: candidato eleicao_id nao encontrada", "sq_candidato", c.SQCandidato, "eleicao_id", c.EleicaoID)
+			violacoes++
+		}
+		if !checkFK(pi, c.PartidoID) {
+			log.Warn("FK invalida: candidato partido_id nao encontrada", "sq_candidato", c.SQCandidato, "partido_id", *c.PartidoID)
+			violacoes++
+		}
+	}
+
+	for _, p := range dados.Prestacoes {
+		if !checkFKDirect(ei, p.EleicaoID) {
+			log.Warn("FK invalida: prestacao_contas eleicao_id nao encontrada", "sq_prestador_contas", p.SQPrestadorContas, "eleicao_id", p.EleicaoID)
+			violacoes++
+		}
+		if !checkFK(ci, p.CandidatoID) {
+			log.Warn("FK invalida: prestacao_contas candidato_id nao encontrada", "sq_prestador_contas", p.SQPrestadorContas, "candidato_id", uuidStr(p.CandidatoID))
+			violacoes++
+		}
+		if !checkFK(pi, p.PartidoID) {
+			log.Warn("FK invalida: prestacao_contas partido_id nao encontrada", "sq_prestador_contas", p.SQPrestadorContas, "partido_id", uuidStr(p.PartidoID))
+			violacoes++
+		}
+		if !checkFK(ui, p.UnidadeEleitoralID) {
+			log.Warn("FK invalida: prestacao_contas unidade_eleitoral_id nao encontrada", "sq_prestador_contas", p.SQPrestadorContas, "unidade_eleitoral_id", uuidStr(p.UnidadeEleitoralID))
+			violacoes++
+		}
+	}
+
+	for _, d := range dados.DespesasCandidato {
+		if !checkFKDirect(ci, d.CandidatoID) {
+			log.Warn("FK invalida: despesa_candidato candidato_id nao encontrada", "sq_despesa", d.SQDespesa, "tipo_registro", d.TipoRegistro, "candidato_id", d.CandidatoID)
+			violacoes++
+		}
+		if !checkFK(fi, d.FornecedorID) {
+			log.Warn("FK invalida: despesa_candidato fornecedor_id nao encontrada", "sq_despesa", d.SQDespesa, "tipo_registro", d.TipoRegistro, "fornecedor_id", uuidStr(d.FornecedorID))
+			violacoes++
+		}
+	}
+
+	for _, d := range dados.DespesasOrgaoPartidario {
+		if !checkFKDirect(pi, d.PartidoID) {
+			log.Warn("FK invalida: despesa_orgao_partidario partido_id nao encontrada", "sq_despesa", d.SQDespesa, "tipo_registro", d.TipoRegistro, "partido_id", d.PartidoID)
+			violacoes++
+		}
+		if !checkFK(fi, d.FornecedorID) {
+			log.Warn("FK invalida: despesa_orgao_partidario fornecedor_id nao encontrada", "sq_despesa", d.SQDespesa, "tipo_registro", d.TipoRegistro, "fornecedor_id", uuidStr(d.FornecedorID))
+			violacoes++
+		}
+	}
+
+	for _, r := range dados.ReceitasCandidato {
+		if !checkFKDirect(ci, r.CandidatoID) {
+			log.Warn("FK invalida: receita_candidato candidato_id nao encontrada", "sq_receita", r.SQReceita, "candidato_id", r.CandidatoID)
+			violacoes++
+		}
+		if !checkFK(di, r.DoadorID) {
+			log.Warn("FK invalida: receita_candidato doador_id nao encontrada", "sq_receita", r.SQReceita, "doador_id", uuidStr(r.DoadorID))
+			violacoes++
+		}
+	}
+
+	for _, r := range dados.ReceitasOrgaoPartidario {
+		if !checkFKDirect(pi, r.PartidoID) {
+			log.Warn("FK invalida: receita_orgao_partidario partido_id nao encontrada", "sq_receita", r.SQReceita, "partido_id", r.PartidoID)
+			violacoes++
+		}
+		if !checkFK(di, r.DoadorID) {
+			log.Warn("FK invalida: receita_orgao_partidario doador_id nao encontrada", "sq_receita", r.SQReceita, "doador_id", uuidStr(r.DoadorID))
+			violacoes++
+		}
+	}
+
+	for _, b := range dados.BensCandidato {
+		if !checkFKDirect(ci, b.CandidatoID) {
+			log.Warn("FK invalida: bem_candidato candidato_id nao encontrada", "numero_ordem", b.NumeroOrdem, "candidato_id", b.CandidatoID)
+			violacoes++
+		}
+	}
+
+	for _, o := range dados.ReceitasDoadorOriginarioCandidato {
+		if !checkFK(rci, o.ReceitaCandidatoID) {
+			log.Warn("FK invalida: receita_doador_originario_candidato receita_candidato_id nao encontrada", "sq_receita", o.SQReceita, "receita_candidato_id", uuidStr(o.ReceitaCandidatoID))
+			violacoes++
+		}
+	}
+
+	for _, o := range dados.ReceitasDoadorOriginarioOrgaoPartidario {
+		if !checkFK(roi, o.ReceitaOrgaoPartidarioID) {
+			log.Warn("FK invalida: receita_doador_originario_orgao_partidario receita_orgao_partidario_id nao encontrada", "sq_receita", o.SQReceita, "receita_orgao_partidario_id", uuidStr(o.ReceitaOrgaoPartidarioID))
+			violacoes++
+		}
+	}
+
+	if violacoes > 0 {
+		log.Error("violacoes de FK encontradas em memoria", "total", violacoes)
+	}
+
+	return violacoes
+}
+
 // ObterUFDoNomeArquivo extrai a UF (sigla) do nome do arquivo CSV
 // Ex: "prestacao_contas_SP.csv" -> "SP"
 // Para arquivos nacionais (sem UF no nome), retorna "BR".
@@ -67,6 +211,7 @@ func LimparTodosDados(dados *tipos.DadosImportacao) {
 	dados.UnidadesEleitorais = nil
 	dados.Partidos = nil
 	dados.Candidatos = nil
+	dados.CandidatosPorID = nil
 	dados.Fornecedores = nil
 	dados.Doadores = nil
 	dados.Prestacoes = nil
@@ -185,8 +330,9 @@ func remapearFornecedorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUI
 			if novo, ok := mapeamento[*despesa.FornecedorID]; ok {
 				despesa.FornecedorID = ponteiroUUID(novo)
 			} else {
-				log.Info("fornecedor nao mapeado - definindo fornecedor_id NULL",
-					"fornecedor_id", despesa.FornecedorID.String(), "despesa_id", despesa.ID)
+				log.Error("fornecedor nao mapeado - definindo fornecedor_id NULL",
+					"fornecedor_id", despesa.FornecedorID.String(), "sq_despesa", despesa.SQDespesa, "tipo_registro", despesa.TipoRegistro, "despesa_id", despesa.ID,
+					"tipo_documento", despesa.TipoDocumento, "numero_documento", despesa.NumeroDocumento, "valor", despesa.Valor)
 				despesa.FornecedorID = nil
 			}
 		}
@@ -196,8 +342,9 @@ func remapearFornecedorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUI
 			if novo, ok := mapeamento[*despesa.FornecedorID]; ok {
 				despesa.FornecedorID = ponteiroUUID(novo)
 			} else {
-				log.Info("fornecedor nao mapeado - definindo fornecedor_id NULL",
-					"fornecedor_id", despesa.FornecedorID.String(), "despesa_orgao_partidario_id", despesa.ID)
+				log.Error("fornecedor nao mapeado - definindo fornecedor_id NULL",
+					"fornecedor_id", despesa.FornecedorID.String(), "sq_despesa", despesa.SQDespesa, "tipo_registro", despesa.TipoRegistro, "despesa_orgao_partidario_id", despesa.ID,
+					"tipo_documento", despesa.TipoDocumento, "numero_documento", despesa.NumeroDocumento, "valor", despesa.Valor)
 				despesa.FornecedorID = nil
 			}
 		}
@@ -214,8 +361,9 @@ func remapearDoadorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUID]uu
 			if novo, ok := mapeamento[*receita.DoadorID]; ok {
 				receita.DoadorID = ponteiroUUID(novo)
 			} else {
-				log.Info("doador nao mapeado - definindo doador_id NULL",
-					"doador_id", receita.DoadorID.String(), "receita_candidato_id", receita.ID)
+				log.Error("doador nao mapeado - definindo doador_id NULL",
+					"doador_id", receita.DoadorID.String(), "sq_receita", receita.SQReceita, "receita_candidato_id", receita.ID,
+					"descricao", receita.Descricao, "valor", receita.Valor)
 				receita.DoadorID = nil
 			}
 		}
@@ -225,8 +373,9 @@ func remapearDoadorIDs(dados *tipos.DadosImportacao, mapeamento map[uuid.UUID]uu
 			if novo, ok := mapeamento[*receita.DoadorID]; ok {
 				receita.DoadorID = ponteiroUUID(novo)
 			} else {
-				log.Info("doador nao mapeado - definindo doador_id NULL",
-					"doador_id", receita.DoadorID.String(), "receita_orgao_partidario_id", receita.ID)
+				log.Error("doador nao mapeado - definindo doador_id NULL",
+					"doador_id", receita.DoadorID.String(), "sq_receita", receita.SQReceita, "receita_orgao_partidario_id", receita.ID,
+					"descricao", receita.Descricao, "valor", receita.Valor)
 				receita.DoadorID = nil
 			}
 		}
@@ -260,159 +409,14 @@ func remapearReceitaOrgaoPartidarioIDs(dados *tipos.DadosImportacao, mapeamento 
 }
 
 // ---------------------------------------------------------------------------
-// Sincronizacao de dependencies: apos reconciliar, atualiza IDs em memoria
+// Sincronizacao: validacao de divergencia entre IDs nas transacoes e
+// nas prestacoes. Usada como diagnostico — nao altera IDs.
 // ---------------------------------------------------------------------------
-
-func sincronizarDependenciasDeEleicao(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToEleicao := make(map[uuid.UUID]*types.Eleicao, len(dados.Eleicoes))
-	for _, e := range dados.Eleicoes {
-		idToEleicao[e.ID] = e
-	}
-	for _, candidato := range dados.Candidatos {
-		if eleicao, ok := idToEleicao[candidato.EleicaoID]; ok {
-			candidato.EleicaoID = eleicao.ID
-		}
-	}
-	for _, prestacao := range dados.Prestacoes {
-		if eleicao, ok := idToEleicao[prestacao.EleicaoID]; ok {
-			prestacao.EleicaoID = eleicao.ID
-		}
-	}
-}
-
-func sincronizarDependenciasDeUnidadeEleitoral(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToUnidade := make(map[uuid.UUID]*types.UnidadeEleitoral, len(dados.UnidadesEleitorais))
-	for _, u := range dados.UnidadesEleitorais {
-		idToUnidade[u.ID] = u
-	}
-	for _, prestacao := range dados.Prestacoes {
-		if prestacao.UnidadeEleitoralID != nil {
-			if unidade, ok := idToUnidade[*prestacao.UnidadeEleitoralID]; ok {
-				prestacao.UnidadeEleitoralID = ponteiroUUID(unidade.ID)
-			}
-		}
-	}
-}
-
-func sincronizarDependenciasDePartido(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToPartido := make(map[uuid.UUID]*types.Partido, len(dados.Partidos))
-	for _, p := range dados.Partidos {
-		idToPartido[p.ID] = p
-	}
-	for _, candidato := range dados.Candidatos {
-		if candidato.PartidoID != nil {
-			if partido, ok := idToPartido[*candidato.PartidoID]; ok {
-				candidato.PartidoID = ponteiroUUID(partido.ID)
-			}
-		}
-	}
-	for _, prestacao := range dados.Prestacoes {
-		if prestacao.PartidoID != nil {
-			if partido, ok := idToPartido[*prestacao.PartidoID]; ok {
-				prestacao.PartidoID = ponteiroUUID(partido.ID)
-			}
-		}
-	}
-	for _, despesa := range dados.DespesasOrgaoPartidario {
-		if partido, ok := idToPartido[despesa.PartidoID]; ok {
-			despesa.PartidoID = partido.ID
-		}
-	}
-	for _, receita := range dados.ReceitasOrgaoPartidario {
-		if partido, ok := idToPartido[receita.PartidoID]; ok {
-			receita.PartidoID = partido.ID
-		}
-	}
-}
-
-func sincronizarDependenciasDeCandidato(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToCandidato := make(map[uuid.UUID]*types.Candidato, len(dados.Candidatos))
-	for _, c := range dados.Candidatos {
-		idToCandidato[c.ID] = c
-	}
-	for _, bem := range dados.BensCandidato {
-		if candidato, ok := idToCandidato[bem.CandidatoID]; ok {
-			bem.CandidatoID = candidato.ID
-		}
-	}
-	for _, prestacao := range dados.Prestacoes {
-		if prestacao.CandidatoID != nil {
-			if candidato, ok := idToCandidato[*prestacao.CandidatoID]; ok {
-				prestacao.CandidatoID = ponteiroUUID(candidato.ID)
-			}
-		}
-	}
-	for _, receita := range dados.ReceitasCandidato {
-		if candidato, ok := idToCandidato[receita.CandidatoID]; ok {
-			receita.CandidatoID = candidato.ID
-		}
-	}
-}
-
-func sincronizarDependenciasDeFornecedor(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToFornecedor := make(map[uuid.UUID]*types.Fornecedor, len(dados.Fornecedores))
-	for _, f := range dados.Fornecedores {
-		idToFornecedor[f.ID] = f
-	}
-	for _, despesa := range dados.DespesasCandidato {
-		if despesa.FornecedorID != nil {
-			if fornecedor, ok := idToFornecedor[*despesa.FornecedorID]; ok {
-				despesa.FornecedorID = ponteiroUUID(fornecedor.ID)
-			}
-		}
-	}
-	for _, despesa := range dados.DespesasOrgaoPartidario {
-		if despesa.FornecedorID != nil {
-			if fornecedor, ok := idToFornecedor[*despesa.FornecedorID]; ok {
-				despesa.FornecedorID = ponteiroUUID(fornecedor.ID)
-			}
-		}
-	}
-}
-
-func sincronizarDependenciasDeDoador(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToDoador := make(map[uuid.UUID]*types.Doador, len(dados.Doadores))
-	for _, d := range dados.Doadores {
-		idToDoador[d.ID] = d
-	}
-	for _, receita := range dados.ReceitasCandidato {
-		if receita.DoadorID != nil {
-			if doador, ok := idToDoador[*receita.DoadorID]; ok {
-				receita.DoadorID = ponteiroUUID(doador.ID)
-			}
-		}
-	}
-	for _, receita := range dados.ReceitasOrgaoPartidario {
-		if receita.DoadorID != nil {
-			if doador, ok := idToDoador[*receita.DoadorID]; ok {
-				receita.DoadorID = ponteiroUUID(doador.ID)
-			}
-		}
-	}
-}
-
 func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 	if dados == nil {
 		return
 	}
+	log := logger.New("LeitorCSV: Utils: sincronizarDependenciasDePrestacao")
 	idToPrestacao := make(map[uuid.UUID]*types.PrestacaoContas, len(dados.Prestacoes))
 	for _, p := range dados.Prestacoes {
 		idToPrestacao[p.ID] = p
@@ -421,7 +425,12 @@ func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 		if prestacao, ok := idToPrestacao[despesa.PrestacaoContasID]; ok {
 			despesa.PrestacaoContasID = prestacao.ID
 			if prestacao.CandidatoID != nil {
-				despesa.CandidatoID = *prestacao.CandidatoID
+				if despesa.CandidatoID != *prestacao.CandidatoID {
+					log.Warn("candidato_id divergente — mantendo valor original do CSV",
+						"sq_despesa", despesa.SQDespesa,
+						"despesa_candidato_id", despesa.CandidatoID,
+						"prestacao_candidato_id", *prestacao.CandidatoID)
+				}
 			}
 		}
 	}
@@ -429,7 +438,12 @@ func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 		if prestacao, ok := idToPrestacao[despesa.PrestacaoContasID]; ok {
 			despesa.PrestacaoContasID = prestacao.ID
 			if prestacao.PartidoID != nil {
-				despesa.PartidoID = *prestacao.PartidoID
+				if despesa.PartidoID != *prestacao.PartidoID {
+					log.Warn("partido_id divergente — mantendo valor original do CSV",
+						"sq_despesa", despesa.SQDespesa,
+						"despesa_partido_id", despesa.PartidoID,
+						"prestacao_partido_id", *prestacao.PartidoID)
+				}
 			}
 		}
 	}
@@ -437,7 +451,12 @@ func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 		if prestacao, ok := idToPrestacao[receita.PrestacaoContasID]; ok {
 			receita.PrestacaoContasID = prestacao.ID
 			if prestacao.CandidatoID != nil {
-				receita.CandidatoID = *prestacao.CandidatoID
+				if receita.CandidatoID != *prestacao.CandidatoID {
+					log.Warn("candidato_id divergente — mantendo valor original do CSV",
+						"sq_receita", receita.SQReceita,
+						"receita_candidato_id", receita.CandidatoID,
+						"prestacao_candidato_id", *prestacao.CandidatoID)
+				}
 			}
 		}
 	}
@@ -445,7 +464,12 @@ func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 		if prestacao, ok := idToPrestacao[receita.PrestacaoContasID]; ok {
 			receita.PrestacaoContasID = prestacao.ID
 			if prestacao.PartidoID != nil {
-				receita.PartidoID = *prestacao.PartidoID
+				if receita.PartidoID != *prestacao.PartidoID {
+					log.Warn("partido_id divergente — mantendo valor original do CSV",
+						"sq_receita", receita.SQReceita,
+						"receita_partido_id", receita.PartidoID,
+						"prestacao_partido_id", *prestacao.PartidoID)
+				}
 			}
 		}
 	}
@@ -459,121 +483,14 @@ func sincronizarDependenciasDePrestacao(dados *tipos.DadosImportacao) {
 			origem.PrestacaoContasID = prestacao.ID
 		}
 	}
-}
-
-func sincronizarDependenciasDeReceitaCandidato(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToReceita := make(map[uuid.UUID]*types.ReceitaCandidato, len(dados.ReceitasCandidatoPorSQ))
-	for _, r := range dados.ReceitasCandidatoPorSQ {
-		idToReceita[r.ID] = r
-	}
-	for _, origem := range dados.ReceitasDoadorOriginarioCandidato {
-		if origem.ReceitaCandidatoID != nil {
-			if receita, ok := idToReceita[*origem.ReceitaCandidatoID]; ok {
-				origem.ReceitaCandidatoID = ponteiroUUID(receita.ID)
-			}
-		}
-	}
-}
-
-func sincronizarDependenciasDeReceitaOrgaoPartidario(dados *tipos.DadosImportacao) {
-	if dados == nil {
-		return
-	}
-	idToReceita := make(map[uuid.UUID]*types.ReceitaOrgaoPartidario, len(dados.ReceitasOrgaoPorSQ))
-	for _, r := range dados.ReceitasOrgaoPorSQ {
-		idToReceita[r.ID] = r
-	}
-	for _, origem := range dados.ReceitasDoadorOriginarioOrgaoPartidario {
-		if origem.ReceitaOrgaoPartidarioID != nil {
-			if receita, ok := idToReceita[*origem.ReceitaOrgaoPartidarioID]; ok {
-				origem.ReceitaOrgaoPartidarioID = ponteiroUUID(receita.ID)
-			}
-		}
-	}
-}
-
-func obterEleicaoPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.Eleicao { //nolint:unused
-	for _, item := range dados.Eleicoes {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterUnidadePorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.UnidadeEleitoral { //nolint:unused
-	for _, item := range dados.UnidadesEleitorais {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterPartidoPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.Partido { //nolint:unused
-	for _, item := range dados.Partidos {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
 }
 
 func obterCandidatoPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.Candidato {
-	for _, item := range dados.Candidatos {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterFornecedorPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.Fornecedor { //nolint:unused
-	for _, item := range dados.Fornecedores {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterDoadorPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.Doador { //nolint:unused
-	for _, item := range dados.Doadores {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
+	return dados.CandidatosPorID[id]
 }
 
 func obterPrestacaoPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.PrestacaoContas {
-	for _, item := range dados.Prestacoes {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterReceitaCandidatoPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.ReceitaCandidato { //nolint:unused
-	for _, item := range dados.ReceitasCandidatoPorSQ {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
-}
-
-func obterReceitaOrgaoPartidarioPorID(dados *tipos.DadosImportacao, id uuid.UUID) *types.ReceitaOrgaoPartidario { //nolint:unused
-	for _, item := range dados.ReceitasOrgaoPorSQ {
-		if item.ID == id {
-			return item
-		}
-	}
-	return nil
+	return dados.PrestacoesPorID[id]
 }
 
 // valores extrai os valores de um mapa generico para um slice (util para iterar mapas com chave descartavel)

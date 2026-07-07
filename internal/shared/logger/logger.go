@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 )
 
 var defaultLogger *slog.Logger
@@ -19,6 +20,11 @@ func init() {
 						short = short[idx+1:]
 					}
 					a.Value = slog.StringValue(short)
+				}
+			}
+			if a.Key == slog.TimeKey {
+				if t, ok := a.Value.Any().(time.Time); ok {
+					a.Value = slog.StringValue(t.Format(time.RFC3339Nano))
 				}
 			}
 			return a

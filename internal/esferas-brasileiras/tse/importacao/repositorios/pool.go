@@ -36,6 +36,20 @@ func ConfigFromEnv() Config {
 	}
 }
 
+func ConfigLeituraFromEnv() Config {
+	return Config{
+		Host:            getEnv("DB_HOST", "localhost"),
+		Port:            getEnv("DB_PORT", "5432"),
+		User:            getEnv("DB_USER", "postgres"),
+		Password:        getEnv("DB_PASSWORD", "postgres"),
+		Database:        getEnv("DB_NAME", "podp"),
+		MaxConns:        int32(runtime.NumCPU() * 4),
+		MinConns:        2,
+		MaxConnLifetime: 10 * time.Minute,
+		MaxConnIdleTime: 30 * time.Second,
+	}
+}
+
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

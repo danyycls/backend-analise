@@ -7,11 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danyele/podp/internal/shared/logger"
-
 	"github.com/danyele/podp/internal/app"
 	database "github.com/danyele/podp/internal/shared/database"
-	migracao "github.com/danyele/podp/internal/shared/migrations"
+	"github.com/danyele/podp/internal/shared/logger"
 )
 
 func main() {
@@ -28,11 +26,6 @@ func main() {
 	defer pool.Close()
 
 	poolDB := database.NewPoolDB(pool)
-
-	if err := migracao.AplicarSQLPool(ctx, pool, "internal/shared/migrations/schema"); err != nil {
-		log.Error("erro ao aplicar migrations", "erro", err)
-		os.Exit(1) //nolint:gocritic
-	}
 
 	a := app.NovoApp(poolDB, obterDiretorioCSV())
 

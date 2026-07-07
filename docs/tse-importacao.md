@@ -57,9 +57,9 @@ Os CSVs são particionados por UF (ex: `consulta_cand_2024_SP.csv`) e, quando o 
 | Variável | Default | Descrição |
 |----------|---------|-----------|
 | `IMPORTACAO_DIRETORIO_CSV` | `dataCSV` | Diretório raiz contendo os CSVs do TSE |
-| `IMPORT_BATCH_SIZE` | `2000` | Número de registros por lote no `pgCOPY` |
-| `IMPORT_MAX_WORKERS` | `4` | Número máximo de goroutines (workers) lendo arquivos em paralelo |
-| `IMPORT_FILES_PER_BATCH` | `2` | Quantos arquivos são lidos por lote antes de persistir |
+| `IMPORT_BATCH_SIZE` | `10000` | Número de registros por lote no `pgCOPY` |
+| `IMPORT_MAX_WORKERS` | `NumCPU * 2` | Número máximo de goroutines (workers) lendo arquivos em paralelo |
+| `IMPORT_FILES_PER_BATCH` | `50` | Quantos arquivos são lidos por lote antes de persistir |
 | `DB_HOST` | `localhost` | Host do PostgreSQL |
 | `DB_PORT` | `5432` | Porta do PostgreSQL |
 | `DB_USER` | `postgres` | Usuário do PostgreSQL |
