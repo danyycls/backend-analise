@@ -128,18 +128,18 @@ func SocioParaPersistido(s types.Socio) SocioPersistido {
 
 func SocioParaFornecedorSocio(cnpjFornecedor, socioID string, s types.Socio) FornecedorSocioPersistido {
 	return FornecedorSocioPersistido{
-		CNPJFornecedor:         cnpjFornecedor,
-		SocioID:                socioID,
-		DataEntradaSociedade:   s.DataEntradaSociedade,
-		IdentificadorSocio:     s.IdentificadorSocio,
-		NomeSocio:              s.NomeSocio,
-		QualificacaoSocio:      s.QualificacaoSocio,
-		NomeRepresentante:      s.NomeRepresentante,
+		CNPJFornecedor:            cnpjFornecedor,
+		SocioID:                   socioID,
+		DataEntradaSociedade:      s.DataEntradaSociedade,
+		IdentificadorSocio:        s.IdentificadorSocio,
+		NomeSocio:                 s.NomeSocio,
+		QualificacaoSocio:         s.QualificacaoSocio,
+		NomeRepresentante:         s.NomeRepresentante,
 		QualificacaoRepresentante: qualificacaoDescricao(s.QualificacaoRepresentante),
-		RepresentanteLegal:     s.RepresentanteLegal,
-		FaixaEtaria:            s.FaixaEtaria,
-		PaisCodigo:             paisCodigo(s.Pais),
-		PaisDescricao:          paisDescricao(s.Pais),
+		RepresentanteLegal:        s.RepresentanteLegal,
+		FaixaEtaria:               s.FaixaEtaria,
+		PaisCodigo:                paisCodigo(s.Pais),
+		PaisDescricao:             paisDescricao(s.Pais),
 	}
 }
 

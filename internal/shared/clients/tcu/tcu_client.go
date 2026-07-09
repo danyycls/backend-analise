@@ -81,7 +81,7 @@ func (c *TCUClient) doPostJSON(ctx context.Context, path string, body any, dest 
 
 func (c *TCUClient) BuscarContasIrregulares(ctx context.Context, filter TCUQueryParams) ([]ContasIrregulares, error) {
 	var result []ContasIrregulares
-	err := c.doPostJSON(ctx, "/responsive-contas-irregulares", filter, &result)
+	err := c.doPostJSON(ctx, "/responsaveis-contas-irregulares", filter, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (c *TCUClient) BuscarContasIrregulares(ctx context.Context, filter TCUQuery
 
 func (c *TCUClient) BuscarFinsEleitorais(ctx context.Context, filter TCUQueryParams) ([]FinsEleitorais, error) {
 	var result []FinsEleitorais
-	err := c.doPostJSON(ctx, "/responsive-fins-eleitorais", filter, &result)
+	err := c.doPostJSON(ctx, "/responsaveis-fins-eleitorais", filter, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (c *TCUClient) BuscarFinsEleitorais(ctx context.Context, filter TCUQueryPar
 
 func (c *TCUClient) BuscarInabilitados(ctx context.Context, filter TCUQueryParams) ([]Sancoes, error) {
 	var result []Sancoes
-	err := c.doPostJSON(ctx, "/responsive-inabilitados", filter, &result)
+	err := c.doPostJSON(ctx, "/responsaveis-inabilitados", filter, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (c *TCUClient) BuscarInabilitados(ctx context.Context, filter TCUQueryParam
 
 func (c *TCUClient) BuscarInidoneos(ctx context.Context, filter TCUQueryParams) ([]Sancoes, error) {
 	var result []Sancoes
-	err := c.doPostJSON(ctx, "/responsive-inidoneos", filter, &result)
+	err := c.doPostJSON(ctx, "/responsaveis-inidoneos", filter, &result)
 	if err != nil {
 		return nil, err
 	}

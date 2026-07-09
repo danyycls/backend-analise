@@ -95,7 +95,7 @@ func (r *Repositorio) GarantirPrestacaoPlaceholder(ctx context.Context, tx pgx.T
 	// Verifica se a eleicao jah existe no banco (persistida em lote anterior
 	// ou no passo 1 do lote atual). Se existir, a FK jah esta satisfeita e
 	// reaproveitamos o ID persistido. Se nao, inserimos a sentinela com
-	// ON CONFLICT (codigo_tse) para evitar duplicatas de codigo_tse=-1.
+	// ON CONFLICT (codigo_tse) para evitar duplicates de codigo_tse=-1.
 	var persistedID uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT id FROM eleicao WHERE id = $1 LIMIT 1`, eleicaoID).Scan(&persistedID); err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {

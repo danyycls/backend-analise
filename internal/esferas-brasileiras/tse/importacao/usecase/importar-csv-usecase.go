@@ -33,23 +33,23 @@ type NivelMetrica struct {
 }
 
 type EventoProgressoImportacao struct {
-	TotalArquivos          int                      `json:"total_arquivos"`
-	TotalDiretorios        int                      `json:"total_diretorios"`
-	DiretorioIndice        int                      `json:"diretorio_indice"`
-	ArquivosLendo          int                      `json:"arquivos_lendo"`
-	ArquivosLidos          int                      `json:"arquivos_lidos"`
-	ArquivosPersistindo    int                      `json:"arquivos_persistindo"`
-	ArquivosPersistidos    int                      `json:"arquivos_persistidos"`
-	ArquivosIgnorados      int                      `json:"arquivos_ignorados"`
-	ArquivosRestantes      int                      `json:"arquivos_restantes"`
-	Timestamp              string                   `json:"timestamp"`
-	DuracaoSegundos        float64                  `json:"duracao_segundos"`
-	EtapaAtual             string                   `json:"etapa_atual"`
-	EntidadeAtual          string                   `json:"entidade_atual"`
-	DuracaoEtapaSegundos   float64                  `json:"duracao_etapa_segundos"`
-	TaxaInsercaoPorSegundo float64                  `json:"taxa_insercao_por_segundo"`
-	EtapasConcluidas       map[string]float64       `json:"etapas_concluidas,omitempty"`
-	ETLTempoPorEntidade    map[string]NivelMetrica  `json:"etl_tempo_por_entidade,omitempty"`
+	TotalArquivos          int                     `json:"total_arquivos"`
+	TotalDiretorios        int                     `json:"total_diretorios"`
+	DiretorioIndice        int                     `json:"diretorio_indice"`
+	ArquivosLendo          int                     `json:"arquivos_lendo"`
+	ArquivosLidos          int                     `json:"arquivos_lidos"`
+	ArquivosPersistindo    int                     `json:"arquivos_persistindo"`
+	ArquivosPersistidos    int                     `json:"arquivos_persistidos"`
+	ArquivosIgnorados      int                     `json:"arquivos_ignorados"`
+	ArquivosRestantes      int                     `json:"arquivos_restantes"`
+	Timestamp              string                  `json:"timestamp"`
+	DuracaoSegundos        float64                 `json:"duracao_segundos"`
+	EtapaAtual             string                  `json:"etapa_atual"`
+	EntidadeAtual          string                  `json:"entidade_atual"`
+	DuracaoEtapaSegundos   float64                 `json:"duracao_etapa_segundos"`
+	TaxaInsercaoPorSegundo float64                 `json:"taxa_insercao_por_segundo"`
+	EtapasConcluidas       map[string]float64      `json:"etapas_concluidas,omitempty"`
+	ETLTempoPorEntidade    map[string]NivelMetrica `json:"etl_tempo_por_entidade,omitempty"`
 }
 
 type ProgressoImportacao struct {
@@ -137,7 +137,7 @@ type ImportarCSVResponse struct {
 	TotalRegistros      int                       `json:"total_registros"`
 	MensagemErro        string                    `json:"mensagem_erro,omitempty"`
 	Erro                *ErroImportacao           `json:"erro,omitempty"`
-	Metricas            *MetricaImportacao        `json:"metricas,omitempty"`
+	Metrics             *MetricaImportacao        `json:"metrics,omitempty"`
 }
 
 type ErroImportacao struct {
@@ -165,15 +165,15 @@ type ImportarCSVUseCase interface {
 }
 
 type importarCSVUseCase struct {
-	pgPool            *pgxpool.Pool
-	pgPoolLeitura     *pgxpool.Pool
-	pgRepo            *repositorios.Repositorio
-	LeitorCSVService  service.LeitorCSVServiceInterface
-	progression       *ProgressoImportacao
-	batchSize         int
-	maxWorkers        int
-	arquivosPorLote   int
-	resultadoMetrica  *repositorios.ImportacaoResultado
+	pgPool           *pgxpool.Pool
+	pgPoolLeitura    *pgxpool.Pool
+	pgRepo           *repositorios.Repositorio
+	LeitorCSVService service.LeitorCSVServiceInterface
+	progression      *ProgressoImportacao
+	batchSize        int
+	maxWorkers       int
+	arquivosPorLote  int
+	resultadoMetrica *repositorios.ImportacaoResultado
 }
 
 func NovoImportarCSVUseCase(pool, poolLeitura *pgxpool.Pool, leitorCSVService service.LeitorCSVServiceInterface) ImportarCSVUseCase {
@@ -285,7 +285,7 @@ func (u *importarCSVUseCase) Executar(ctx context.Context, input ImportarCSVRequ
 		return resultado, errGlobal
 	}
 
-	resultado.Metricas = &MetricaImportacao{
+	resultado.Metrics = &MetricaImportacao{
 		TempoCopy:  u.resultadoMetrica.TempoCOPY.String(),
 		TempoMerge: u.resultadoMetrica.TempoMerge.String(),
 		Registros:  u.resultadoMetrica.RegistrosInseridos,

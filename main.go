@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -15,14 +16,20 @@ import (
 func main() {
 	log := logger.New("Main")
 	log.Info("build info", "version", "dev", "commit", "none", "data", "2026-06-28")
+	if err := run(); err != nil {
+		log.Fatal("erro fatal", "erro", err)
+	}
+}
 
+func run() error {
+	log := logger.New("Main")
 	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancelar()
 
 	pool, err := database.NovaPool(ctx, database.ConfigFromEnv())
 	if err != nil {
-		log.Fatal("erro ao criar pgx pool", "erro", err)
+		return fmt.Errorf("erro ao criar pgx pool: %w", err)
 	}
-	defer cancelar()
 	defer pool.Close()
 
 	poolDB := database.NewPoolDB(pool)
@@ -35,8 +42,9 @@ func main() {
 	endereco := ":" + obterPorta()
 	log.Info("API iniciada", "endereco", "http://localhost"+endereco)
 	if err := http.ListenAndServe(endereco, handlerComCORS); err != nil {
-		log.Fatal("erro ao iniciar API", "erro", err)
+		return fmt.Errorf("erro ao iniciar API: %w", err)
 	}
+	return nil
 }
 
 func corsHandler(next http.Handler) http.Handler {

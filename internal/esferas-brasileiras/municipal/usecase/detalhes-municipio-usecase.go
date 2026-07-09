@@ -724,8 +724,8 @@ func persistirContratosMunicipio(ctx context.Context, repo repositorios.PNCPRepo
 		controle := repositorios.BuscaControlePersistido{
 			TipoBusca: tipo, ValorBusca: valor,
 			Ano: ano, Mes: mes,
-			DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
-			DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
+			DataInicial:               time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
+			DataFinal:                 time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
 			TotalContratosEncontrados: 0,
 		}
 		return repo.RegistrarBusca(ctx, controle)
@@ -742,8 +742,8 @@ func persistirContratosMunicipio(ctx context.Context, repo repositorios.PNCPRepo
 	controle := repositorios.BuscaControlePersistido{
 		TipoBusca: tipo, ValorBusca: valor,
 		Ano: ano, Mes: mes,
-		DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
-		DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
+		DataInicial:               time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
+		DataFinal:                 time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
 		TotalContratosEncontrados: len(contratos),
 	}
 	return repo.RegistrarBusca(ctx, controle)
@@ -755,12 +755,12 @@ func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarTodasPaginas(ctx context.Co
 	dataInicial, dataFinal := utils.FormatarPeriodoMes(ano, mes)
 
 	pagina := 1
-	tamanho := 50
+	tamanho := 200
 	items := make([]pncpClient.Contrato, 0)
 	seen := make(map[string]struct{})
 
 	for {
-		resp, err := u.pncpClient.BuscarContratacoesPorMunicipio(ctx, valor, dataInicial, dataFinal, "", pagina, tamanho)
+		resp, err := u.pncpClient.BuscarContratosPorMunicipio(ctx, valor, dataInicial, dataFinal, "", pagina, tamanho)
 		if err != nil {
 			log.Error("erro ao buscar contratacoes municipio", "pagina", pagina, "erro", err)
 			break
@@ -789,6 +789,8 @@ func (u *EsferaMunicipalBuscarDetalhesUseCase) buscarTodasPaginas(ctx context.Co
 			break
 		}
 		pagina++
+
+		time.Sleep(3 * time.Second)
 
 		select {
 		case <-ctx.Done():

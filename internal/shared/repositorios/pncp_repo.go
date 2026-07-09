@@ -20,4 +20,6 @@ type PNCPRepository interface {
 	BuscaJaRealizada(ctx context.Context, tipo, valor string, ano, mes int) (bool, error)
 	RegistrarBusca(ctx context.Context, controle BuscaControlePersistido) error
 	AtualizarBusca(ctx context.Context, controle BuscaControlePersistido) error
+
+	ComTransaction(ctx context.Context, fn func(PNCPRepository) error) error
 }

@@ -2,16 +2,57 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/danyele/podp/internal/shared/clients/opencnpj"
 	"github.com/danyele/podp/internal/shared/clients/pncp"
 	"github.com/danyele/podp/internal/shared/logger"
+	redis "github.com/danyele/podp/internal/shared/redis"
 	"github.com/danyele/podp/internal/shared/repositorios"
 	"github.com/danyele/podp/internal/shared/types"
 	"github.com/danyele/podp/internal/shared/utils"
 )
+
+var maxConcorrencia int
+
+func init() {
+	maxConcorrencia = getEnvInt("PNCP_MAX_CONCORRENCIA", 1)
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return defaultVal
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return defaultVal
+	}
+	return n
+}
+
+type PncpUseCaseBase struct {
+	pncpClient     *pncp.PNCPClient
+	opencnpjClient *opencnpj.OpenCNPJClient
+	redis          *redis.RedisCache
+	repo           repositorios.PNCPRepository
+}
+
+func NewPncpUseCaseBase(pncp *pncp.PNCPClient, opencnpj *opencnpj.OpenCNPJClient, redis *redis.RedisCache, repo repositorios.PNCPRepository) PncpUseCaseBase {
+	return PncpUseCaseBase{
+		pncpClient:     pncp,
+		opencnpjClient: opencnpj,
+		redis:          redis,
+		repo:           repo,
+	}
+}
+
+type FetchPaginaContratos func(ctx context.Context, valor, dataInicial, dataFinal string, pagina, tamanho int) (*pncp.ContratoResponse, error)
 
 func extrairFornecedores(contratos []pncp.Contrato) map[string]string {
 	fornecedores := make(map[string]string)
@@ -91,96 +132,6 @@ func enriquecerFornecedoresComRepo(ctx context.Context, repo repositorios.PNCPRe
 	return enriched
 }
 
-func persistirContratos(ctx context.Context, repo repositorios.PNCPRepository, tipo, valor string, ano, mes int, contratos []pncp.Contrato) error {
-	if len(contratos) == 0 {
-		controle := repositorios.BuscaControlePersistido{
-			TipoBusca:                tipo,
-			ValorBusca:               valor,
-			Ano:                      ano,
-			Mes:                      mes,
-			DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
-			DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
-			TotalContratosEncontrados: 0,
-		}
-		return repo.RegistrarBusca(ctx, controle)
-	}
-
-	persistidos := make([]repositorios.ContratoPersistido, len(contratos))
-	amparosMap := make(map[int]bool)
-	fornecedoresMap := make(map[string]*types.FornecedorOpenCNPJ)
-
-	for i, c := range contratos {
-		cp := repositorios.ContratoParaPersistido(c)
-		persistidos[i] = cp
-
-		if c.AmparoLegal != nil && c.AmparoLegal.Codigo != nil {
-			amparosMap[*c.AmparoLegal.Codigo] = true
-		}
-		if c.Fornecedor != nil && c.Fornecedor.CNPJ != nil {
-			cnpj := *c.Fornecedor.CNPJ
-			if _, ok := fornecedoresMap[cnpj]; !ok {
-				fornecedoresMap[cnpj] = c.Fornecedor
-			}
-		}
-	}
-
-	if len(amparosMap) > 0 {
-		for codigo := range amparosMap {
-			for _, c := range contratos {
-				if c.AmparoLegal != nil && c.AmparoLegal.Codigo != nil && *c.AmparoLegal.Codigo == codigo {
-					ap := repositorios.ExtrairAmparoLegal(c.AmparoLegal)
-					if ap != nil {
-						_ = repo.SalvarAmparosLegais(ctx, []repositorios.AmparoLegalPersistido{*ap})
-					}
-					break
-				}
-			}
-		}
-	}
-
-	if len(fornecedoresMap) > 0 {
-		fornecedores := make([]repositorios.FornecedorPersistido, 0, len(fornecedoresMap))
-		socios := make([]repositorios.FornecedorSocioPersistido, 0)
-		for cnpjF, f := range fornecedoresMap {
-			fp := repositorios.FornecedorParaPersistido(*f)
-			fornecedores = append(fornecedores, fp)
-
-			if f.Socios != nil {
-				for _, s := range f.Socios {
-					sp := repositorios.SocioParaPersistido(s)
-					socioID, err := repo.SalvarSocio(ctx, sp)
-					if err != nil {
-						continue
-					}
-					vs := repositorios.SocioParaFornecedorSocio(cnpjF, socioID, s)
-					socios = append(socios, vs)
-				}
-			}
-		}
-		if len(fornecedores) > 0 {
-			_ = repo.SalvarFornecedores(ctx, fornecedores)
-		}
-		if len(socios) > 0 {
-			_ = repo.SalvarFornecedorSocios(ctx, socios)
-		}
-	}
-
-	if err := repo.SalvarContratos(ctx, persistidos); err != nil {
-		return err
-	}
-
-	controle := repositorios.BuscaControlePersistido{
-		TipoBusca:                tipo,
-		ValorBusca:               valor,
-		Ano:                      ano,
-		Mes:                      mes,
-		DataInicial:              time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC),
-		DataFinal:                time.Date(ano, time.Month(mes), 1, 0, 0, 0, 0, time.UTC).AddDate(0, 1, -1),
-		TotalContratosEncontrados: len(contratos),
-	}
-	return repo.RegistrarBusca(ctx, controle)
-}
-
 func buscarMesesParalelo(
 	ctx context.Context,
 	tipo, valor string,
@@ -199,6 +150,7 @@ func buscarMesesParalelo(
 		go func(am utils.AnoMes) {
 			defer wg.Done()
 			defer func() { <-sem }()
+			defer time.Sleep(3 * time.Second)
 
 			contratosMes := buscarMes(ctx, tipo, valor, am.Ano, am.Mes)
 			if len(contratosMes) == 0 {
@@ -213,4 +165,239 @@ func buscarMesesParalelo(
 
 	wg.Wait()
 	return total
+}
+
+func checkCache(ctx context.Context, redisCli *redis.RedisCache, tipo, valor, dataInicial, dataFinal string) []*pncp.AnaliseResultado {
+	cacheParams := map[string]interface{}{
+		"tipo": tipo, "valor": valor,
+		"dataInicial": dataInicial, "dataFinal": dataFinal,
+	}
+	raw, _ := json.Marshal(cacheParams)
+	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
+
+	var cached []*pncp.AnaliseResultado
+	if ok, err := redisCli.Get(ctx, cacheKey, &cached); err != nil {
+		logger.New("PNCP: UseCase").Warn("cache indisponivel", "erro", err)
+	} else if ok && len(cached) > 0 {
+		logger.New("PNCP: UseCase").Info("cache hit", "tipo", tipo, "valor", valor)
+		return cached
+	}
+	return nil
+}
+
+func writeCache(ctx context.Context, redisCli *redis.RedisCache, tipo, valor, dataInicial, dataFinal string, resultados []*pncp.AnaliseResultado) {
+	cacheParams := map[string]interface{}{
+		"tipo": tipo, "valor": valor,
+		"dataInicial": dataInicial, "dataFinal": dataFinal,
+	}
+	raw, _ := json.Marshal(cacheParams)
+	cacheKey := redis.ChaveCache(redis.ChaveLicitacoesTrimestre, raw)
+
+	if err := redisCli.Set(ctx, cacheKey, resultados); err != nil {
+		logger.New("PNCP: UseCase").Warn("cache indisponivel", "erro", err)
+	}
+}
+
+func consultarContratosExistentes(ctx context.Context, repo repositorios.PNCPRepository, tipo, valor string, meses []utils.AnoMes) ([]pncp.Contrato, []utils.AnoMes) {
+	var contratos []pncp.Contrato
+	var mesesPendentes []utils.AnoMes
+
+	for _, am := range meses {
+		jaRealizada, err := repo.BuscaJaRealizada(ctx, tipo, valor, am.Ano, am.Mes)
+		if err != nil {
+			logger.New("PNCP: UseCase: consultarContratosExistentes").Warn("erro ao verificar busca no PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+			mesesPendentes = append(mesesPendentes, am)
+			continue
+		}
+		if jaRealizada {
+			persistidos, err := repo.BuscarContratosPorFiltro(ctx, tipo, valor, am.Ano, am.Mes)
+			if err != nil {
+				logger.New("PNCP: UseCase: consultarContratosExistentes").Warn("erro ao buscar contratos do PG", "ano", am.Ano, "mes", am.Mes, "erro", err)
+				mesesPendentes = append(mesesPendentes, am)
+				continue
+			}
+			for i := range persistidos {
+				contratos = append(contratos, repositorios.PersistidoParaContrato(persistidos[i]))
+			}
+			continue
+		}
+		mesesPendentes = append(mesesPendentes, am)
+	}
+
+	return contratos, mesesPendentes
+}
+
+func buscarContratosPaginado(
+	ctx context.Context,
+	fetchPagina FetchPaginaContratos,
+	valor string, ano, mes int,
+	tamanhoPagina int,
+	delay time.Duration,
+) ([]pncp.Contrato, error) {
+	log := logger.New("PNCP: UseCase: buscarContratosPaginado")
+
+	dataInicial, dataFinal := utils.FormatarPeriodoMes(ano, mes)
+	pagina := 1
+	var contratos []pncp.Contrato
+	seen := make(map[string]struct{})
+
+	for {
+		resp, err := fetchPagina(ctx, valor, dataInicial, dataFinal, pagina, tamanhoPagina)
+		if err != nil {
+			return nil, fmt.Errorf("pagina %d: %w", pagina, err)
+		}
+		if resp == nil || resp.Empty || len(resp.Data) == 0 {
+			break
+		}
+
+		for _, c := range resp.Data {
+			key := ""
+			if c.NumeroControlePNCP != nil {
+				key = *c.NumeroControlePNCP
+			}
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			contratos = append(contratos, c)
+		}
+
+		if pagina >= resp.TotalPaginas {
+			break
+		}
+		pagina++
+
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+	}
+
+	log.Info("contratos obtidos do PNCP", "valor", valor, "ano", ano, "mes", mes, "total", len(contratos))
+	return contratos, nil
+}
+
+func montarResultadoUnico(
+	ctx context.Context,
+	repo repositorios.PNCPRepository,
+	opencnpjClient *opencnpj.OpenCNPJClient,
+	contratos []pncp.Contrato,
+	cnpjOrgao, dataInicial, dataFinal string,
+) *pncp.AnaliseResultado {
+	log := logger.New("PNCP: UseCase: montarResultadoUnico")
+
+	fornecedoresMap := extrairFornecedores(contratos)
+	log.Info("fornecedores unicos extraidos", "total", len(fornecedoresMap))
+
+	enrichedFornecedores := enriquecerFornecedoresComRepo(ctx, repo, opencnpjClient, fornecedoresMap)
+	log.Info("empresas enriquecidas", "total", len(enrichedFornecedores))
+
+	contratosDTO := montarContratosDTO(contratos, enrichedFornecedores)
+
+	var orgao *pncp.OrgaoInfo
+	if len(contratosDTO) > 0 && contratosDTO[0].OrgaoEntidade != nil {
+		orgao = &pncp.OrgaoInfo{
+			CNPJ:        contratosDTO[0].OrgaoEntidade.CNPJ,
+			RazaoSocial: contratosDTO[0].OrgaoEntidade.RazaoSocial,
+		}
+	} else {
+		orgao = &pncp.OrgaoInfo{CNPJ: pncp.StrPtr(cnpjOrgao)}
+	}
+
+	totalContratos := len(contratosDTO)
+	totalEmpresas := len(enrichedFornecedores)
+	var valorTotal float64
+	for _, c := range contratosDTO {
+		if c.ValorGlobal != nil {
+			valorTotal += *c.ValorGlobal
+		}
+	}
+
+	return &pncp.AnaliseResultado{
+		Orgao: orgao,
+		Periodo: &pncp.Periodo{
+			DataInicial: pncp.StrPtr(dataInicial),
+			DataFinal:   pncp.StrPtr(dataFinal),
+		},
+		Resumo: &pncp.Resumo{
+			TotalContratos:      &totalContratos,
+			TotalEmpresas:       &totalEmpresas,
+			ValorTotalContratos: &valorTotal,
+		},
+		Contratos: contratosDTO,
+	}
+}
+
+func montarResultadosAgrupados(
+	ctx context.Context,
+	repo repositorios.PNCPRepository,
+	opencnpjClient *opencnpj.OpenCNPJClient,
+	contratos []pncp.Contrato,
+	tipo, valor, dataInicial, dataFinal string,
+) ([]*pncp.AnaliseResultado, error) {
+	grupos := agruparContratosPorOrgao(contratos)
+	if len(grupos) == 0 {
+		return nil, fmt.Errorf("nenhum contrato encontrado para %s %s", tipo, valor)
+	}
+
+	resultados := make([]*pncp.AnaliseResultado, 0, len(grupos))
+	for _, g := range grupos {
+		cnpj := ""
+		if g.CNPJ != nil {
+			cnpj = *g.CNPJ
+		}
+		r := montarResultadoUnico(ctx, repo, opencnpjClient, g.Contratos, cnpj, dataInicial, dataFinal)
+		resultados = append(resultados, r)
+	}
+	return resultados, nil
+}
+
+type grupoOrgao struct {
+	CNPJ        *string
+	RazaoSocial *string
+	Contratos   []pncp.Contrato
+}
+
+func agruparContratosPorOrgao(contratos []pncp.Contrato) []*grupoOrgao {
+	grupos := make(map[string]*grupoOrgao)
+	ordem := make([]string, 0)
+
+	for _, c := range contratos {
+		cnpj := ""
+		razao := ""
+		if c.OrgaoEntidade != nil && c.OrgaoEntidade.CNPJ != nil {
+			cnpj = *c.OrgaoEntidade.CNPJ
+		}
+		if c.OrgaoEntidade != nil && c.OrgaoEntidade.RazaoSocial != nil {
+			razao = *c.OrgaoEntidade.RazaoSocial
+		}
+
+		if cnpj == "" {
+			cnpj = "sem_cnpj"
+		}
+
+		if _, ok := grupos[cnpj]; !ok {
+			grupos[cnpj] = &grupoOrgao{
+				CNPJ:        pncp.StrPtr(cnpj),
+				RazaoSocial: pncp.StrPtr(razao),
+				Contratos:   make([]pncp.Contrato, 0),
+			}
+			ordem = append(ordem, cnpj)
+		}
+		grupos[cnpj].Contratos = append(grupos[cnpj].Contratos, c)
+	}
+
+	resultado := make([]*grupoOrgao, 0, len(grupos))
+	for _, key := range ordem {
+		resultado = append(resultado, grupos[key])
+	}
+	return resultado
 }

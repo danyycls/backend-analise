@@ -7,6 +7,7 @@ import (
 
 	"github.com/danyele/podp/internal/shared/database"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const colunasContrato = `
@@ -24,17 +25,69 @@ const colunasContrato = `
 const numColunasContrato = 34
 const chunkSize = 100
 
+type dbExecutor interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 type pncpRepositoryImpl struct {
 	db database.DB
+	tx pgx.Tx
 }
 
 func NovoPNCPRepository(db database.DB) PNCPRepository {
 	return &pncpRepositoryImpl{db: db}
 }
 
+func (r *pncpRepositoryImpl) executor() dbExecutor {
+	if r.tx != nil {
+		return r.tx
+	}
+	return r.db
+}
+
+func (r *pncpRepositoryImpl) ComTransaction(ctx context.Context, fn func(PNCPRepository) error) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+
+	txRepo := &pncpRepositoryImpl{db: r.db, tx: tx}
+
+	if err := fn(txRepo); err != nil {
+		if rbErr := tx.Rollback(ctx); rbErr != nil {
+			return fmt.Errorf("rollback: %v (apos err: %w)", rbErr, err)
+		}
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (r *pncpRepositoryImpl) SalvarContratos(ctx context.Context, contratos []ContratoPersistido) error {
 	if len(contratos) == 0 {
 		return nil
+	}
+
+	return r.executarEmTx(ctx, func(exec dbExecutor) error {
+		for i := 0; i < len(contratos); i += chunkSize {
+			fim := i + chunkSize
+			if fim > len(contratos) {
+				fim = len(contratos)
+			}
+			chunk := contratos[i:fim]
+
+			if err := r.salvarContratosBatch(ctx, exec, chunk); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *pncpRepositoryImpl) executarEmTx(ctx context.Context, fn func(dbExecutor) error) error {
+	if r.tx != nil {
+		return fn(r.tx)
 	}
 
 	tx, err := r.db.Begin(ctx)
@@ -43,22 +96,14 @@ func (r *pncpRepositoryImpl) SalvarContratos(ctx context.Context, contratos []Co
 	}
 	defer tx.Rollback(ctx)
 
-	for i := 0; i < len(contratos); i += chunkSize {
-		fim := i + chunkSize
-		if fim > len(contratos) {
-			fim = len(contratos)
-		}
-		chunk := contratos[i:fim]
-
-		if err := r.salvarContratosBatch(ctx, tx, chunk); err != nil {
-			return err
-		}
+	if err := fn(tx); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)
 }
 
-func (r *pncpRepositoryImpl) salvarContratosBatch(ctx context.Context, tx pgx.Tx, contratos []ContratoPersistido) error {
+func (r *pncpRepositoryImpl) salvarContratosBatch(ctx context.Context, exec dbExecutor, contratos []ContratoPersistido) error {
 	n := len(contratos)
 	placeholders := make([]string, n)
 	args := make([]any, 0, n*numColunasContrato)
@@ -91,7 +136,7 @@ func (r *pncpRepositoryImpl) salvarContratosBatch(ctx context.Context, tx pgx.Tx
 		ON CONFLICT (numero_controle_pncp) DO UPDATE SET updated_at = NOW()
 	`, colunasContrato, strings.Join(placeholders, ", "))
 
-	_, err := tx.Exec(ctx, query, args...)
+	_, err := exec.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("salvar contratos batch [%d]: %w", n, err)
 	}
@@ -103,30 +148,25 @@ func (r *pncpRepositoryImpl) SalvarFornecedores(ctx context.Context, fornecedore
 		return nil
 	}
 
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	for _, f := range fornecedores {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO licitacao_fornecedor (cnpj, razao_social, dados_completos)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (cnpj) DO UPDATE SET
-				razao_social = EXCLUDED.razao_social,
-				dados_completos = EXCLUDED.dados_completos
-		`, f.CNPJ, f.RazaoSocial, f.DadosCompletos)
-		if err != nil {
-			return fmt.Errorf("salvar fornecedor %s: %w", f.CNPJ, err)
+	return r.executarEmTx(ctx, func(exec dbExecutor) error {
+		for _, f := range fornecedores {
+			_, err := exec.Exec(ctx, `
+				INSERT INTO licitacao_fornecedor (cnpj, razao_social, dados_completos)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (cnpj) DO UPDATE SET
+					razao_social = EXCLUDED.razao_social,
+					dados_completos = EXCLUDED.dados_completos
+			`, f.CNPJ, f.RazaoSocial, f.DadosCompletos)
+			if err != nil {
+				return fmt.Errorf("salvar fornecedor %s: %w", f.CNPJ, err)
+			}
 		}
-	}
-
-	return tx.Commit(ctx)
+		return nil
+	})
 }
 
 func (r *pncpRepositoryImpl) SalvarSocio(ctx context.Context, socio SocioPersistido) (string, error) {
-	row := r.db.QueryRow(ctx, `
+	row := r.executor().QueryRow(ctx, `
 		INSERT INTO socio (cnpj_cpf_socio, nome_socio)
 		VALUES ($1, $2)
 		ON CONFLICT (cnpj_cpf_socio) DO UPDATE SET nome_socio = EXCLUDED.nome_socio
@@ -146,47 +186,42 @@ func (r *pncpRepositoryImpl) SalvarFornecedorSocios(ctx context.Context, vinculo
 		return nil
 	}
 
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	fornecedores := make(map[string]bool)
-	for _, v := range vinculos {
-		fornecedores[v.CNPJFornecedor] = true
-	}
-
-	cnpjs := make([]string, 0, len(fornecedores))
-	for cnpj := range fornecedores {
-		cnpjs = append(cnpjs, cnpj)
-	}
-
-	_, err = tx.Exec(ctx, `DELETE FROM fornecedor_socio WHERE cnpj_fornecedor = ANY($1)`, cnpjs)
-	if err != nil {
-		return fmt.Errorf("limpar socios dos fornecedores: %w", err)
-	}
-
-	for _, v := range vinculos {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO fornecedor_socio (
-				cnpj_fornecedor, socio_id,
-				data_entrada_sociedade, identificador_socio, nome_socio,
-				qualificacao_socio, nome_representante, qualificacao_representante,
-				representante_legal, faixa_etaria, pais_codigo, pais_descricao
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		`,
-			v.CNPJFornecedor, v.SocioID,
-			v.DataEntradaSociedade, v.IdentificadorSocio, v.NomeSocio,
-			v.QualificacaoSocio, v.NomeRepresentante, v.QualificacaoRepresentante,
-			v.RepresentanteLegal, v.FaixaEtaria, v.PaisCodigo, v.PaisDescricao,
-		)
-		if err != nil {
-			return fmt.Errorf("vincular socio ao fornecedor: %w", err)
+	return r.executarEmTx(ctx, func(exec dbExecutor) error {
+		fornecedores := make(map[string]bool)
+		for _, v := range vinculos {
+			fornecedores[v.CNPJFornecedor] = true
 		}
-	}
 
-	return tx.Commit(ctx)
+		cnpjs := make([]string, 0, len(fornecedores))
+		for cnpj := range fornecedores {
+			cnpjs = append(cnpjs, cnpj)
+		}
+
+		_, err := exec.Exec(ctx, `DELETE FROM fornecedor_socio WHERE cnpj_fornecedor = ANY($1)`, cnpjs)
+		if err != nil {
+			return fmt.Errorf("limpar socios dos fornecedores: %w", err)
+		}
+
+		for _, v := range vinculos {
+			_, err := exec.Exec(ctx, `
+				INSERT INTO fornecedor_socio (
+					cnpj_fornecedor, socio_id,
+					data_entrada_sociedade, identificador_socio, nome_socio,
+					qualificacao_socio, nome_representante, qualificacao_representante,
+					representante_legal, faixa_etaria, pais_codigo, pais_descricao
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			`,
+				v.CNPJFornecedor, v.SocioID,
+				v.DataEntradaSociedade, v.IdentificadorSocio, v.NomeSocio,
+				v.QualificacaoSocio, v.NomeRepresentante, v.QualificacaoRepresentante,
+				v.RepresentanteLegal, v.FaixaEtaria, v.PaisCodigo, v.PaisDescricao,
+			)
+			if err != nil {
+				return fmt.Errorf("vincular socio ao fornecedor: %w", err)
+			}
+		}
+		return nil
+	})
 }
 
 func (r *pncpRepositoryImpl) SalvarAmparosLegais(ctx context.Context, amparos []AmparoLegalPersistido) error {
@@ -194,7 +229,7 @@ func (r *pncpRepositoryImpl) SalvarAmparosLegais(ctx context.Context, amparos []
 		return nil
 	}
 	for _, a := range amparos {
-		_, err := r.db.Exec(ctx, `
+		_, err := r.executor().Exec(ctx, `
 			INSERT INTO amparo_legal (codigo, nome, descricao)
 			VALUES ($1, $2, $3)
 			ON CONFLICT (codigo) DO NOTHING
@@ -334,7 +369,7 @@ func (r *pncpRepositoryImpl) BuscaJaRealizada(ctx context.Context, tipo, valor s
 }
 
 func (r *pncpRepositoryImpl) RegistrarBusca(ctx context.Context, controle BuscaControlePersistido) error {
-	_, err := r.db.Exec(ctx, `
+	_, err := r.executor().Exec(ctx, `
 		INSERT INTO licitacao_busca_controle (tipo_busca, valor_busca, ano, mes, data_inicial, data_final, total_contratos_encontrados)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (tipo_busca, valor_busca, ano, mes) DO NOTHING
@@ -344,7 +379,7 @@ func (r *pncpRepositoryImpl) RegistrarBusca(ctx context.Context, controle BuscaC
 }
 
 func (r *pncpRepositoryImpl) AtualizarBusca(ctx context.Context, controle BuscaControlePersistido) error {
-	_, err := r.db.Exec(ctx, `
+	_, err := r.executor().Exec(ctx, `
 		UPDATE licitacao_busca_controle
 		SET total_contratos_encontrados = $1, ultima_atualizacao = NOW()
 		WHERE tipo_busca = $2 AND valor_busca = $3 AND ano = $4 AND mes = $5

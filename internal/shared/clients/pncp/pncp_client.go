@@ -5,28 +5,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/danyele/podp/internal/shared/logger"
 )
 
+const (
+	cbLimiarFalhas  = 5
+	cbTimeout       = 30 * time.Second
+	maxAttempts     = 3
+	backoffBase     = 1 * time.Second
+	backoffBaseFast = 500 * time.Millisecond
+)
+
+type circuitBreaker struct {
+	mu           sync.Mutex
+	falhasConsec int
+	abertoAte    time.Time
+}
+
 type PNCPClient struct {
-	baseURL        string
-	basePublicacao string
-	client         *http.Client
+	baseURL          string
+	baseContratacoes string
+	client           *http.Client
+	cb               circuitBreaker
 }
 
 func NovoPNCPClient(baseURL string) *PNCPClient {
 	return &PNCPClient{
-		baseURL:        baseURL + "/contratos",
-		basePublicacao: baseURL + "/contratacoes/publicacao",
-		client:         &http.Client{Timeout: 300 * time.Second},
+		baseURL:          baseURL + "/contratos",
+		baseContratacoes: baseURL + "/contratacoes/publicacao",
+		client:           &http.Client{Timeout: 300 * time.Second},
 	}
 }
 
-func (p *PNCPClient) BuscarContratos(ctx context.Context, cnpj, dataInicial, dataFinal string, pagina, tamanho int) ([]Contrato, error) {
+func (p *PNCPClient) BuscarContratos(ctx context.Context, cnpj, dataInicial, dataFinal string, pagina, tamanho int) (*ContratoResponse, error) {
+	if p.cb.isAberto() {
+		return nil, fmt.Errorf("circuit breaker aberto para PNCP")
+	}
+
 	log := logger.New("Clients: Client: BuscarContratos")
 	u, _ := url.Parse(p.baseURL)
 	q := u.Query()
@@ -38,8 +60,7 @@ func (p *PNCPClient) BuscarContratos(ctx context.Context, cnpj, dataInicial, dat
 	u.RawQuery = q.Encode()
 
 	var lastErr error
-	attempts := 3
-	for i := 1; i <= attempts; i++ {
+	for i := 1; i <= maxAttempts; i++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 		if err != nil {
 			return nil, err
@@ -52,113 +73,58 @@ func (p *PNCPClient) BuscarContratos(ctx context.Context, cnpj, dataInicial, dat
 		if err != nil {
 			lastErr = err
 			log.Error("PNCP: erro na requisicao", "attempt", i, "error", err)
+			p.cb.falha()
 		} else {
-			if resp.StatusCode != 200 {
+			if resp.StatusCode == http.StatusNoContent {
+				resp.Body.Close()
+				p.cb.sucesso()
+				log.Info("PNCP: 204 sem conteudo")
+				return &ContratoResponse{}, nil
+			}
+			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				lastErr = fmt.Errorf("pncp status %d: %s", resp.StatusCode, string(body))
 				log.Error("PNCP: status nao 200", "attempt", i, "error", lastErr)
+				if !isRetryable(resp.StatusCode, nil) {
+					p.cb.falha()
+					return nil, lastErr
+				}
+				p.cb.falha()
 			} else {
+				p.cb.sucesso()
 				body, rerr := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				if rerr != nil {
 					lastErr = rerr
 					log.Error("PNCP: erro ler body", "attempt", i, "error", rerr)
-				} else {
-					var contratos []Contrato
-					if derr := json.Unmarshal(body, &contratos); derr == nil {
-						return contratos, nil
+					if !isRetryable(0, rerr) {
+						return nil, lastErr
 					}
+					continue
+				}
 
-					var obj map[string]json.RawMessage
-					if derr2 := json.Unmarshal(body, &obj); derr2 == nil {
-						for _, raw := range obj {
-							var arr []Contrato
-							if derr3 := json.Unmarshal(raw, &arr); derr3 == nil {
-								return arr, nil
-							}
-						}
-						lastErr = fmt.Errorf("pncp: nao encontrou array de contratos no objeto retornado")
-						log.Error("PNCP: decode objeto", "attempt", i, "error", lastErr)
-					} else {
-						lastErr = derr2
-						log.Error("PNCP: erro decode", "attempt", i, "error", derr2)
-					}
+				var pubResp ContratoResponse
+				derr := json.Unmarshal(body, &pubResp)
+				if derr == nil {
+					return &pubResp, nil
+				}
+				lastErr = derr
+				log.Error("PNCP: erro decode", "attempt", i, "error", derr)
+				if !isRetryable(0, lastErr) {
+					return nil, lastErr
 				}
 			}
 		}
 
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(i) * 500 * time.Millisecond):
-		}
-	}
-	return nil, lastErr
-}
-
-func (p *PNCPClient) buscarPublicacaoResponse(ctx context.Context, params map[string]string, pagina, tamanho int) (*PublicacaoResponse, error) {
-	log := logger.New("Clients: Client: buscarPublicacaoResponse")
-	u, _ := url.Parse(p.basePublicacao)
-	q := u.Query()
-	for k, v := range params {
-		q.Set(k, v)
-	}
-	q.Set("pagina", fmt.Sprintf("%d", pagina))
-	q.Set("tamanhoPagina", fmt.Sprintf("%d", tamanho))
-	u.RawQuery = q.Encode()
-	var lastErr error
-	attempts := 1
-	for i := 1; i <= attempts; i++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
+		if err := waitWithBackoff(ctx, i, backoffBaseFast); err != nil {
 			return nil, err
 		}
-		req.Header.Set("User-Agent", "Liceu/1.0")
-		req.Header.Set("Accept", "application/json")
-
-		log.Info("PNCP publicacao: solicitando", "pagina", pagina, "url", u.String(), "attempt", i)
-		resp, err := p.client.Do(req)
-		switch {
-		case err != nil:
-			lastErr = err
-			log.Error("PNCP publicacao: erro na requisicao", "attempt", i, "error", err)
-		case resp.StatusCode == 204:
-			resp.Body.Close()
-			log.Info("PNCP publicacao: 204 sem conteudo para municipio")
-			return &PublicacaoResponse{}, nil
-		case resp.StatusCode != 200:
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			lastErr = fmt.Errorf("pncp publicacao status %d: %s", resp.StatusCode, string(body))
-			log.Error("PNCP publicacao: status nao 200", "attempt", i, "error", lastErr)
-		default:
-			body, rerr := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			if rerr != nil {
-				lastErr = rerr
-				log.Error("PNCP publicacao: erro ler body", "attempt", i, "error", rerr)
-				continue
-			}
-			var pubResp PublicacaoResponse
-			derr := json.Unmarshal(body, &pubResp)
-			if derr == nil {
-				return &pubResp, nil
-			}
-			lastErr = derr
-			log.Error("PNCP publicacao: erro decode", "attempt", i, "error", derr)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(time.Duration(i) * 500 * time.Millisecond):
-		}
 	}
 	return nil, lastErr
 }
 
-func (p *PNCPClient) BuscarContratacoesPorMunicipio(ctx context.Context, codigoMunicipio string, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*PublicacaoResponse, error) {
+func (p *PNCPClient) BuscarContratosPorMunicipio(ctx context.Context, codigoMunicipio string, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*ContratoResponse, error) {
 	if codigoModalidade == "" {
 		codigoModalidade = "8"
 	}
@@ -168,10 +134,10 @@ func (p *PNCPClient) BuscarContratacoesPorMunicipio(ctx context.Context, codigoM
 		"dataInicial":                 dataInicial,
 		"dataFinal":                   dataFinal,
 	}
-	return p.buscarPublicacaoResponse(ctx, params, pagina, tamanho)
+	return p.parsebuscarContratosResponse(ctx, params, pagina, tamanho)
 }
 
-func (p *PNCPClient) BuscarContratacoesPorUF(ctx context.Context, uf, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*PublicacaoResponse, error) {
+func (p *PNCPClient) BuscarContratosPorUF(ctx context.Context, uf, dataInicial, dataFinal, codigoModalidade string, pagina, tamanho int) (*ContratoResponse, error) {
 	if codigoModalidade == "" {
 		codigoModalidade = "8"
 	}
@@ -181,5 +147,132 @@ func (p *PNCPClient) BuscarContratacoesPorUF(ctx context.Context, uf, dataInicia
 		"dataInicial":                 dataInicial,
 		"dataFinal":                   dataFinal,
 	}
-	return p.buscarPublicacaoResponse(ctx, params, pagina, tamanho)
+	return p.parsebuscarContratosResponse(ctx, params, pagina, tamanho)
+}
+
+func (p *PNCPClient) parsebuscarContratosResponse(ctx context.Context, params map[string]string, pagina, tamanho int) (*ContratoResponse, error) {
+	if p.cb.isAberto() {
+		return nil, fmt.Errorf("circuit breaker aberto para PNCP")
+	}
+
+	log := logger.New("Clients: Client: parsebuscarContratosResponse")
+	u, _ := url.Parse(p.baseContratacoes)
+	q := u.Query()
+	for k, v := range params {
+		q.Set(k, v)
+	}
+	q.Set("pagina", fmt.Sprintf("%d", pagina))
+	q.Set("tamanhoPagina", fmt.Sprintf("%d", tamanho))
+	u.RawQuery = q.Encode()
+
+	var lastErr error
+	for i := 1; i <= maxAttempts; i++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "Liceu/1.0")
+		req.Header.Set("Accept", "application/json")
+
+		log.Info("PNCP contratos: solicitando", "pagina", pagina, "url", u.String(), "attempt", i)
+		resp, err := p.client.Do(req)
+
+		shouldRetry := false
+		switch {
+		case err != nil:
+			lastErr = err
+			log.Error("PNCP publicacao: erro na requisicao", "attempt", i, "error", err)
+			p.cb.falha()
+			shouldRetry = true
+		case resp.StatusCode == http.StatusNoContent:
+			resp.Body.Close()
+			p.cb.sucesso()
+			log.Info("PNCP publicacao: 204 sem conteudo para municipio")
+			return &ContratoResponse{}, nil
+		case resp.StatusCode != http.StatusOK:
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("pncp publicacao status %d: %s", resp.StatusCode, string(body))
+			log.Error("PNCP publicacao: status nao 200", "attempt", i, "error", lastErr)
+			if isRetryable(resp.StatusCode, nil) {
+				shouldRetry = true
+				p.cb.falha()
+			} else {
+				p.cb.falha()
+				return nil, lastErr
+			}
+		default:
+			p.cb.sucesso()
+			body, rerr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if rerr != nil {
+				lastErr = rerr
+				log.Error("PNCP publicacao: erro ler body", "attempt", i, "error", rerr)
+				shouldRetry = true
+				continue
+			}
+			var pubResp ContratoResponse
+			derr := json.Unmarshal(body, &pubResp)
+			if derr == nil {
+				return &pubResp, nil
+			}
+			lastErr = derr
+			log.Error("PNCP publicacao: erro decode", "attempt", i, "error", derr)
+			shouldRetry = true
+		}
+
+		if !shouldRetry {
+			return nil, lastErr
+		}
+
+		if err := waitWithBackoff(ctx, i, backoffBase); err != nil {
+			return nil, err
+		}
+	}
+	return nil, lastErr
+}
+
+func isRetryable(statusCode int, err error) bool {
+	if err != nil {
+		return true
+	}
+	return statusCode == http.StatusServiceUnavailable ||
+		statusCode == http.StatusTooManyRequests ||
+		statusCode == http.StatusGatewayTimeout
+}
+
+func waitWithBackoff(ctx context.Context, attempt int, base time.Duration) error {
+	backoff := float64(base) * math.Pow(2, float64(attempt-1))
+	jitter := (rand.Float64()*2 - 1) * backoff * 0.3
+	total := time.Duration(backoff + jitter)
+	if total < 0 {
+		total = 0
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(total):
+		return nil
+	}
+}
+
+func (cb *circuitBreaker) isAberto() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	return time.Now().Before(cb.abertoAte)
+}
+
+func (cb *circuitBreaker) sucesso() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.falhasConsec = 0
+}
+
+func (cb *circuitBreaker) falha() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.falhasConsec++
+	if cb.falhasConsec >= cbLimiarFalhas {
+		cb.abertoAte = time.Now().Add(cbTimeout)
+	}
 }

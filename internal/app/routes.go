@@ -29,9 +29,9 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.POST("/entidade", app.HandlerConsultaEntidade.Consultar)
 	}
 
-	if app.AnalisePublicacaoHandler != nil {
-		roteador.POST("/publicacao/analise", app.AnalisePublicacaoHandler.AnalisePublicacao)
-		roteador.GET("/publicacao/analise/batch/:jobId", app.AnalisePublicacaoHandler.BuscarResultadosBatch)
+	if app.AnaliseUFMunicipioHandler != nil {
+		roteador.POST("/uf-municipio/analise", app.AnaliseUFMunicipioHandler.AnaliseUFMunicipio)
+		roteador.GET("/uf-municipio/analise/batch/:jobId", app.AnaliseUFMunicipioHandler.BuscarResultadosBatch)
 		roteador.GET("/ibge/municipios/:uf", app.ListarMunicipiosHandler.ListarMunicipios)
 	}
 
@@ -209,11 +209,6 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/estado/:uf/senadores", app.BuscarSenadoresEstadoHandler.BuscarSenadoresEstado)
 		roteador.GET("/ibge/municipios-populacao/:uf", app.BuscarMunicipiosPopulacaoHandler.BuscarMunicipiosPopulacao)
 		roteador.GET("/estado/:uf/recursos-federais", app.BuscarRecursosFederaisCompletoHandler.Buscar)
-	}
-
-	if app.BuscarLicitacoesUFHandler != nil {
-		roteador.GET("/estado/:uf/licitacoes", app.BuscarLicitacoesUFHandler.Buscar)
-		roteador.GET("/estado/:uf/licitacoes/municipio/:codigo", app.BuscarLicitacoesUFHandler.Buscar)
 	}
 
 	if app.WSHub != nil {

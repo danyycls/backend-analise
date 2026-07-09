@@ -37,14 +37,14 @@ type RedisCache struct {
 
 func NovoRedisCache() *RedisCache {
 	opt, err := goredis.ParseURL(os.Getenv("REDIS_ADDR"))
-if err != nil {
-    panic(err)
-}
+	if err != nil {
+		panic(err)
+	}
 
-opt.MaxRetries = 1
-opt.MinRetryBackoff = 500 * time.Millisecond
+	opt.MaxRetries = 1
+	opt.MinRetryBackoff = 500 * time.Millisecond
 
-client := goredis.NewClient(opt)
+	client := goredis.NewClient(opt)
 
 	return &RedisCache{client: client}
 }

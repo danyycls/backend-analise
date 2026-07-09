@@ -59,9 +59,9 @@ func (h *LeitorCSVHandler) Executar(c *gin.Context) {
 			if err != nil {
 				log.Error("erro na importacao", "erro", err, "duracao_minutos", duracaoMinutos)
 				c.SSEvent("erro", gin.H{
-					"sucesso":          0,
-					"timestamp":        time.Now().Format(time.RFC3339Nano),
-					"duracao_minutos":  duracaoMinutos,
+					"sucesso":         0,
+					"timestamp":       time.Now().Format(time.RFC3339Nano),
+					"duracao_minutos": duracaoMinutos,
 				})
 			} else {
 				persistidos := 0
@@ -81,9 +81,9 @@ func (h *LeitorCSVHandler) Executar(c *gin.Context) {
 			c.Writer.Flush()
 			return
 		case <-ticker.C:
-			progresso := h.useCase.ProgressoEvento()
-			progresso.Timestamp = time.Now().Format(time.RFC3339Nano)
-			c.SSEvent("progression", progresso)
+			progression := h.useCase.ProgressoEvento()
+			progression.Timestamp = time.Now().Format(time.RFC3339Nano)
+			c.SSEvent("progression", progression)
 			c.Writer.Flush()
 		}
 	}

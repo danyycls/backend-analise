@@ -26,7 +26,7 @@ type NivelTiming struct {
 }
 
 type ImportacaoResultado struct {
-	mu                sync.Mutex
+	mu                 sync.Mutex
 	RegistrosInseridos int64
 	TempoCOPY          time.Duration
 	TempoMerge         time.Duration
@@ -63,8 +63,8 @@ type Repositorio struct {
 
 func Novo(pool, poolLeitura *pgxpool.Pool) *Repositorio {
 	return &Repositorio{
-		pool:                     pool,
-		poolLeitura:              poolLeitura,
+		pool:                      pool,
+		poolLeitura:               poolLeitura,
 		prestacaoPlaceholderCache: make(map[string]uuid.UUID),
 	}
 }

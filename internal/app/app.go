@@ -11,8 +11,10 @@ import (
 
 	handlerEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/handler"
 	handlerDeputados "github.com/danyele/podp/internal/esferas-brasileiras/federal/deputados/handler"
+	handlerIBGE "github.com/danyele/podp/internal/esferas-brasileiras/federal/ibge/handler"
 	handlerPNCP "github.com/danyele/podp/internal/esferas-brasileiras/federal/pncp/handler"
 	handlerPortalCartoes "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/cartoes/handler"
+	handlerConvenio "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/convenio/handler"
 	handlerPortalDespesas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/despesas/handler"
 	handlerPortalEmendas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/emendas/handler"
 	handlerPortalOrgaos "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/orgaos/handler"
@@ -25,9 +27,9 @@ import (
 	importacaoRepositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
 	importacaoService "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/service"
 	importacaoUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/usecase"
-	repositorios "github.com/danyele/podp/internal/shared/repositorios"
 	tseUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
 	handlerLigacao "github.com/danyele/podp/internal/ligacao-politica/handler"
+	repositorios "github.com/danyele/podp/internal/shared/repositorios"
 
 	anomaliaHandler "github.com/danyele/podp/internal/worker/anomalia/handler"
 	anomaliaUseCase "github.com/danyele/podp/internal/worker/anomalia/usecase"
@@ -46,8 +48,10 @@ import (
 	usecaseEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase"
 	dadosfinanceiros "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase/dadosfinanceiros"
 	usecaseDeputados "github.com/danyele/podp/internal/esferas-brasileiras/federal/deputados/usecase"
+	usecaseIBGE "github.com/danyele/podp/internal/esferas-brasileiras/federal/ibge/usecase"
 	usecasePNCP "github.com/danyele/podp/internal/esferas-brasileiras/federal/pncp/usecase"
 	usecasePortalCartoes "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/cartoes/usecase"
+	usecaseConvenio "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/convenio/usecase"
 	usecasePortalDespesas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/despesas/usecase"
 	usecasePortalEmendas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/emendas/usecase"
 	usecasePortalOrgaos "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/orgaos/usecase"
@@ -87,9 +91,8 @@ type App struct {
 	AnalisarLigacaoPoliticaHandler *handlerLigacao.AnalisarLigacaoPoliticaHandler
 
 	AnaliseOrgaoPNCPHandler   *handlerPNCP.AnaliseOrgaoPNCPHandler
-	AnalisePublicacaoHandler  *handlerPNCP.AnalisePublicacaoHandler
-	BuscarLicitacoesUFHandler *handlerPNCP.BuscarLicitacoesUFHandler
-	ListarMunicipiosHandler   *handlerPNCP.ListarMunicipiosHandler
+	AnaliseUFMunicipioHandler *handlerPNCP.AnaliseUFMunicipioHandler
+	ListarMunicipiosHandler   *handlerIBGE.ListarMunicipiosHandler
 
 	HandlerBuscaRelacoes    *tseHandler.BuscaRelacoesHandler
 	HandlerConsultaEntidade *tseHandler.ConsultaEntidadeHandler
@@ -211,7 +214,7 @@ type App struct {
 	AnomaliaWorkerHandler   *anomaliaHandler.AnomaliaWorkerHandler
 	AnomaliaConsultaHandler *anomaliaHandler.AnomaliaConsultaHandler
 
-	ConvenioHandler *handlerPNCP.ConsultaConvenioHandler
+	ConvenioHandler *handlerConvenio.ConsultaConvenioHandler
 }
 
 func NovoApp(db database.DB, diretorioCSV string) *App {
@@ -271,12 +274,10 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	buscarFornecedorUC := tseUseCase.NovoBuscarFornecedorUseCase(db)
 
 	pncpAnaliseOrgaoHandler := handlerPNCP.NovoAnaliseOrgaoPNCPHandler(
-		usecasePNCP.NovoConsultaCNPJOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
-		redisCache,
+		usecasePNCP.NovoConsultaContratoOrgaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
 	)
-	pncpAnalisePubHandler := handlerPNCP.NovoAnalisePublicacaoHandler(
-		usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
-		redisCache,
+	pncpAnaliseUFMunicipioHandler := handlerPNCP.NovoAnaliseUFMunicipioHandler(
+		usecasePNCP.NovoConsultaContratoUFMunicipioPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
 	)
 
 	anomaliaWorkerUC := anomaliaUseCase.NovoAnaliseAnomaliaWorkerUseCase(
@@ -294,8 +295,10 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	anomaliaConsutaUC := anomaliaUseCase.NovoAnomaliaConsultaUseCase(mongoClient)
 	anomaliaConsultaHandler := anomaliaHandler.NovoAnomaliaConsultaHandler(anomaliaConsutaUC)
 
-	convenioUC := usecasePNCP.NovoConsultaConvenioUseCase(db)
-	convenioHandler := handlerPNCP.NovoConsultaConvenioHandler(convenioUC)
+	listarMunicipiosUC := usecaseIBGE.NovoListarMunicipiosUseCase(ibgeClient)
+
+	convenioUC := usecaseConvenio.NovoConsultaConvenioUseCase(db)
+	convenioHandler := handlerConvenio.NovoConsultaConvenioHandler(convenioUC)
 
 	contasIrregularesUC := usecaseTCU.NovoContasIrregularesUseCase(tcuClient)
 	finsEleitoraisUC := usecaseTCU.NovoFinsEleitoraisUseCase(tcuClient)
@@ -436,9 +439,8 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		AnalisarLigacaoPoliticaHandler: handlerLigacao,
 
 		AnaliseOrgaoPNCPHandler:   pncpAnaliseOrgaoHandler,
-		AnalisePublicacaoHandler:  pncpAnalisePubHandler,
-		BuscarLicitacoesUFHandler: handlerPNCP.NovoBuscarLicitacoesUFHandler(usecasePNCP.NovoConsultaPublicacaoPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo)),
-		ListarMunicipiosHandler:   handlerPNCP.NovoListarMunicipiosHandler(ibgeClient),
+		AnaliseUFMunicipioHandler: pncpAnaliseUFMunicipioHandler,
+		ListarMunicipiosHandler:   handlerIBGE.NovoListarMunicipiosHandler(listarMunicipiosUC),
 
 		HandlerBuscaRelacoes:    relacoesHandlerBusca,
 		HandlerConsultaEntidade: relacoesHandlerEntidade,
@@ -521,7 +523,7 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 
 		WSHub: stream.NewHub(
 			pncpAnaliseOrgaoHandler,
-			pncpAnalisePubHandler,
+			pncpAnaliseUFMunicipioHandler,
 			anomaliaWorkerHandler,
 			despesaPessoalUC,
 			despesaCategoriaUC,

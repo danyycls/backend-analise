@@ -39,9 +39,9 @@ type ClientMessage struct {
 }
 
 type Hub struct {
-	orgaoHandler         *handlerPNCP.AnaliseOrgaoPNCPHandler
-	publicacaoHandler    *handlerPNCP.AnalisePublicacaoHandler
-	anomaliaWorkerHander *anomaliaHandler.AnomaliaWorkerHandler
+	orgaoHandler              *handlerPNCP.AnaliseOrgaoPNCPHandler
+	analiseUFMunicipioHandler *handlerPNCP.AnaliseUFMunicipioHandler
+	anomaliaWorkerHander      *anomaliaHandler.AnomaliaWorkerHandler
 
 	despesaPessoalUC   *dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalUseCase
 	despesaCategoriaUC *dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaUseCase
@@ -53,7 +53,7 @@ type Hub struct {
 
 func NewHub(
 	orgaoHandler *handlerPNCP.AnaliseOrgaoPNCPHandler,
-	publicacaoHandler *handlerPNCP.AnalisePublicacaoHandler,
+	analiseUFMunicipioHandler *handlerPNCP.AnaliseUFMunicipioHandler,
 	anomaliaWorkerHandler *anomaliaHandler.AnomaliaWorkerHandler,
 	despesaPessoalUC *dadosfinanceiros.EsferaEstadualBuscarDespesaPessoalUseCase,
 	despesaCategoriaUC *dadosfinanceiros.EsferaEstadualBuscarDespesaCategoriaUseCase,
@@ -62,14 +62,14 @@ func NewHub(
 	municipioUC *usecaseMunicipal.EsferaMunicipalBuscarDetalhesUseCase,
 ) *Hub {
 	return &Hub{
-		orgaoHandler:         orgaoHandler,
-		publicacaoHandler:    publicacaoHandler,
-		anomaliaWorkerHander: anomaliaWorkerHandler,
-		despesaPessoalUC:     despesaPessoalUC,
-		despesaCategoriaUC:   despesaCategoriaUC,
-		rreoUC:               rreoUC,
-		recursosFederaisUC:   recursosFederaisUC,
-		municipioUC:          municipioUC,
+		orgaoHandler:              orgaoHandler,
+		analiseUFMunicipioHandler: analiseUFMunicipioHandler,
+		anomaliaWorkerHander:      anomaliaWorkerHandler,
+		despesaPessoalUC:          despesaPessoalUC,
+		despesaCategoriaUC:        despesaCategoriaUC,
+		rreoUC:                    rreoUC,
+		recursosFederaisUC:        recursosFederaisUC,
+		municipioUC:               municipioUC,
 	}
 }
 
@@ -95,8 +95,8 @@ func (h *Hub) Handle(c *gin.Context) {
 	switch msg.Channel {
 	case "orgao_analise":
 		h.streamOrgao(ctx, conn, msg.JobID)
-	case "publicacao_analise":
-		h.streamPublicacao(ctx, conn, msg.JobID)
+	case "uf_municipio_analise":
+		h.streamUFMunicipio(ctx, conn, msg.JobID)
 	case "anomalia_analise":
 		h.streamAnomalia(ctx, conn, msg.JobID)
 	case "estado_financeiro":
@@ -136,8 +136,8 @@ func (h *Hub) streamOrgao(ctx context.Context, conn *gorilla.Conn, jobID string)
 	}
 }
 
-func (h *Hub) streamPublicacao(ctx context.Context, conn *gorilla.Conn, jobID string) {
-	eventChan, exists := h.publicacaoHandler.GetJobChan(jobID)
+func (h *Hub) streamUFMunicipio(ctx context.Context, conn *gorilla.Conn, jobID string) {
+	eventChan, exists := h.analiseUFMunicipioHandler.GetJobChan(jobID)
 	if !exists {
 		ws.WriteJSON(conn, pncp.EventoAnalise{Type: "error", Message: "job nao encontrado"})
 		return

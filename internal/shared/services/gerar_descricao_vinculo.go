@@ -32,7 +32,7 @@ var tipoParaInfo = map[string]struct {
 	Tag       string
 	Fragmento string
 }{
-	"fornecedor":               {Tag: "Fornecedor-TSE", Fragmento: "fornecedor em campanha política"},
+	"fornecedor":               {Tag: "Fornecedor-TSE", Fragmento: "prestador de servico eleitoral registrado"},
 	"doador":                   {Tag: "Doador-TSE", Fragmento: "doador eleitoral"},
 	"receita_candidato":        {Tag: "Doação Candidato-TSE", Fragmento: "doação a candidato"},
 	"receita_orgao_partidario": {Tag: "Doação Partido-TSE", Fragmento: "doação a partido"},
@@ -41,7 +41,7 @@ var tipoParaInfo = map[string]struct {
 	"tcu_inidoneo":             {Tag: "Inidôneo-TCU", Fragmento: "inidôneo pelo TCU"},
 	"servidor_publico":         {Tag: "Servidor Público-Portal Transparência", Fragmento: "servidor público federal"},
 	"pessoa_publica":           {Tag: "Pessoa Exposta-Portal Transparência", Fragmento: "pessoa politicamente exposta"},
-	"dispensa_valor_limite":    {Tag: "Dispensa acima do limite-Regra", Fragmento: "dispensa de licitação acima do limite legal de baixo valor"},
+	"dispensa_valor_limite":    {Tag: "Dispensa acima do limite-Regra", Fragmento: "registrada na modalidade dispensa de licitação, mas esta acima do limite legal"},
 }
 
 func (s *gerarDescricaoVinculoServiceImpl) Executar(
@@ -54,20 +54,35 @@ func (s *gerarDescricaoVinculoServiceImpl) Executar(
 		return &GerarDescricaoVinculoOutput{}, nil
 	}
 
-	// Fixed prefix: "Empresa vencedora da licitação X no valor de R$ X, "
-	empresa := vl.NomeEmpresa
-	if empresa == "" {
-		for _, doc := range vl.DocumentosVinculos {
-			if doc.Origem == "principal" && doc.Nome != "" {
-				empresa = doc.Nome
+	hasDispensaLimite := false
+	for _, doc := range vl.DocumentosVinculos {
+		for _, v := range doc.Vinculos {
+			if v.Tipo == "dispensa_valor_limite" {
+				hasDispensaLimite = true
 				break
 			}
+		}
+		if hasDispensaLimite {
+			break
 		}
 	}
 
 	var b strings.Builder
-	b.WriteString(empresa)
-	b.WriteString(" vencedora da licitação ")
+	if hasDispensaLimite {
+		b.WriteString("licitação ")
+	} else {
+		empresa := vl.NomeEmpresa
+		if empresa == "" {
+			for _, doc := range vl.DocumentosVinculos {
+				if doc.Origem == "principal" && doc.Nome != "" {
+					empresa = doc.Nome
+					break
+				}
+			}
+		}
+		b.WriteString(empresa)
+		b.WriteString(" vencedora da licitação ")
+	}
 	b.WriteString(vl.NumeroControlePncp)
 	if vl.ValorGlobal > 0 {
 		b.WriteString(fmt.Sprintf(" no valor de R$ %.2f", vl.ValorGlobal))
@@ -131,7 +146,7 @@ func montarFragmento(v domain.Vinculo, doc domain.DocumentoVinculo) string {
 					total += ro.Receita.Valor
 				}
 			}
-			return fmt.Sprintf("%sfez doação(ões) (R$ %.2f)", p, total)
+			return fmt.Sprintf("%srealizou doacao eleitoral (R$ %.2f)", p, total)
 		}
 		return fragmentoGenerico(v.Tipo, doc)
 	case "receita_candidato":
@@ -164,9 +179,9 @@ func fragmentoGenerico(tipo string, doc domain.DocumentoVinculo) string {
 	switch tipo {
 	case "fornecedor":
 		if p != "" {
-			return p + "é fornecedor em campanha política"
+			return p + "é prestador de servico eleitoral registrado"
 		}
-		return "é fornecedor em campanha política"
+		return "é prestador de servico eleitoral registrado"
 	case "tcu_contas_irregulares":
 		if p != "" {
 			return p + "tem contas irregulares no TCU"
@@ -188,7 +203,7 @@ func fragmentoGenerico(tipo string, doc domain.DocumentoVinculo) string {
 		}
 		return "é servidor público federal"
 	case "dispensa_valor_limite":
-		return "dispensa de licitação acima do limite legal de baixo valor"
+		return "registrada na modalidade dispensa de licitação, mas esta acima do limite legal"
 	default:
 		info, ok := tipoParaInfo[tipo]
 		if !ok {

@@ -3,33 +3,29 @@ package pncp
 import "github.com/danyele/podp/internal/shared/types"
 
 type CategoriaProcesso struct {
-	ID    *int                   `json:"id"`
-	Nome  *string                `json:"nome"`
-	Extra map[string]interface{} `json:"-"`
+	ID   *int    `json:"id"`
+	Nome *string `json:"nome"`
 }
 
 type TipoContrato struct {
-	ID    *int                   `json:"id"`
-	Nome  *string                `json:"nome"`
-	Extra map[string]interface{} `json:"-"`
+	ID   *int    `json:"id"`
+	Nome *string `json:"nome"`
 }
 
 type OrgaoEntidade struct {
-	CNPJ        *string                `json:"cnpj"`
-	EsferaID    *string                `json:"esferaId"`
-	PoderID     *string                `json:"poderId"`
-	RazaoSocial *string                `json:"razaoSocial"`
-	Extra       map[string]interface{} `json:"-"`
+	CNPJ        *string `json:"cnpj"`
+	EsferaID    *string `json:"esferaId"`
+	PoderID     *string `json:"poderId"`
+	RazaoSocial *string `json:"razaoSocial"`
 }
 
 type UnidadeOrgao struct {
-	CodigoIbge    *string                `json:"codigoIbge"`
-	CodigoUnidade *string                `json:"codigoUnidade"`
-	MunicipioNome *string                `json:"municipioNome"`
-	NomeUnidade   *string                `json:"nomeUnidade"`
-	UFNome        *string                `json:"ufNome"`
-	UFSigla       *string                `json:"ufSigla"`
-	Extra         map[string]interface{} `json:"-"`
+	CodigoIbge    *string `json:"codigoIbge"`
+	CodigoUnidade *string `json:"codigoUnidade"`
+	MunicipioNome *string `json:"municipioNome"`
+	NomeUnidade   *string `json:"nomeUnidade"`
+	UFNome        *string `json:"ufNome"`
+	UFSigla       *string `json:"ufSigla"`
 }
 
 type Contrato struct {
@@ -102,7 +98,32 @@ type AnaliseResultado struct {
 	Contratos []Contrato `json:"contratos,omitempty"`
 }
 
-type PublicacaoResponse struct {
-	TotalPaginas int        `json:"totalPaginas"`
-	Data         []Contrato `json:"data"`
+type ContratoResponse struct {
+	TotalPaginas     int        `json:"totalPaginas"`
+	TotalRegistros   int        `json:"totalRegistros"`
+	NumeroPagina     int        `json:"numeroPagina"`
+	PaginasRestantes int        `json:"paginasRestantes"`
+	Empty            bool       `json:"empty"`
+	Data             []Contrato `json:"data"`
+}
+
+type AnaliseContratoRequest struct {
+	Tipo                string `json:"tipo"`
+	UF                  string `json:"uf"`
+	CodigoMunicipioIbge string `json:"codigo_municipio_ibge"`
+	DataInicial         string `json:"data_inicial"`
+	DataFinal           string `json:"data_final"`
+}
+
+type AmparoLegal struct {
+	Descricao *string `json:"descricao"`
+	Nome      *string `json:"nome"`
+	Codigo    *int    `json:"codigo"`
+}
+
+type FonteOrcamentaria struct {
+	Codigo       *int    `json:"codigo"`
+	Nome         *string `json:"nome"`
+	Descricao    *string `json:"descricao"`
+	DataInclusao *string `json:"dataInclusao"`
 }

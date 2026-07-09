@@ -38,7 +38,7 @@ func PersistirDadosImportacaoPgCopy(
 		resultado.Etapas = make(map[string]time.Duration)
 	}
 
-	// Nivel 0: Convenios (independente)
+	// Nivel 0: Convenios (independence)
 	if len(dados.Convenios) > 0 {
 		if resultado.SetEntidade != nil {
 			resultado.SetEntidade("n0_convenios")
@@ -246,7 +246,7 @@ func PersistirDadosImportacaoPgCopy(
 		log.Debug("persistindo", "nivel", "4", "entidade", "PrestacoesContas", "registros", len(dados.Prestacoes))
 
 		// Reconstroi map apos remapeamento de dimensoes para evitar
-		// duplicatas no ON CONFLICT (SQLSTATE 21000) e
+		// duplicates no ON CONFLICT (SQLSTATE 21000) e
 		// violacao de check constraint (SQLSTATE 23514)
 		prestacoesDedup := make(map[string]*types.PrestacaoContas, len(dados.Prestacoes))
 		for _, p := range dados.Prestacoes {
