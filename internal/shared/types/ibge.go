@@ -28,8 +28,3 @@ type Mesorregiao2 struct {
 	Nome string     `json:"nome"`
 	UF   EstadoIBGE `json:"UF"`
 }
-
-type PopulacaoResultado struct {
-	MunicipioID int   `json:"municipio_id"`
-	Populacao   int64 `json:"populacao"`
-}

@@ -17,10 +17,6 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/orgao/analise/batch/:jobId", app.AnaliseOrgaoPNCPHandler.BuscarResultadosBatch)
 	}
 
-	if app.AnalisarLigacaoPoliticaHandler != nil {
-		roteador.POST("/busca/contexto", app.AnalisarLigacaoPoliticaHandler.Analisar)
-	}
-
 	if app.HandlerBuscaRelacoes != nil {
 		roteador.POST("/busca/relacoes", app.HandlerBuscaRelacoes.Buscar)
 	}
@@ -33,6 +29,14 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.POST("/uf-municipio/analise", app.AnaliseUFMunicipioHandler.AnaliseUFMunicipio)
 		roteador.GET("/uf-municipio/analise/batch/:jobId", app.AnaliseUFMunicipioHandler.BuscarResultadosBatch)
 		roteador.GET("/ibge/municipios/:uf", app.ListarMunicipiosHandler.ListarMunicipios)
+	}
+
+	if app.ListarEstadosHandler != nil {
+		roteador.GET("/ibge/estados", app.ListarEstadosHandler.ListarEstados)
+	}
+
+	if app.BuscarPopulacaoHandler != nil {
+		roteador.POST("/ibge/populacao", app.BuscarPopulacaoHandler.BuscarPopulacao)
 	}
 
 	if app.ContasIrregularesHandler != nil {
@@ -168,10 +172,6 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/senado/processo/:id", app.BuscarProcessoHandler.Buscar)
 	}
 
-	if app.FeedbackHandler != nil {
-		roteador.POST("/feedback", app.FeedbackHandler.SaveFeedback)
-	}
-
 	if app.ListarVotacoesHandler != nil {
 		roteador.GET("/senado/votacoes", app.ListarVotacoesHandler.Listar)
 	}
@@ -198,17 +198,6 @@ func NovoRoteador(app *App) *gin.Engine {
 	}
 	if app.BuscarComissaoHandler != nil {
 		roteador.GET("/senado/comissoes/:codigo", app.BuscarComissaoHandler.Buscar)
-	}
-
-	if app.ListarEstadosHandler != nil {
-		roteador.GET("/ibge/estados", app.ListarEstadosHandler.ListarEstados)
-		roteador.GET("/estado/:uf/dados-completos", app.BuscarDadosEstadoHandler.BuscarDadosEstado)
-		roteador.GET("/estado/:uf/basico", app.BuscarBasicoEstadoHandler.BuscarBasicoEstado)
-		roteador.GET("/estado/:uf/candidatos", app.BuscarCandidatosEstadoHandler.BuscarCandidatosEstado)
-		roteador.GET("/estado/:uf/deputados", app.BuscarDeputadosEstadoHandler.BuscarDeputadosEstado)
-		roteador.GET("/estado/:uf/senadores", app.BuscarSenadoresEstadoHandler.BuscarSenadoresEstado)
-		roteador.GET("/ibge/municipios-populacao/:uf", app.BuscarMunicipiosPopulacaoHandler.BuscarMunicipiosPopulacao)
-		roteador.GET("/estado/:uf/recursos-federais", app.BuscarRecursosFederaisCompletoHandler.Buscar)
 	}
 
 	if app.WSHub != nil {
@@ -265,18 +254,46 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.GET("/portal-transparencia/emendas/documentos/:codigo", app.BuscarDocumentosEmendaHandler.BuscarDocumentos)
 	}
 
-	if app.AnomaliaWorkerHandler != nil {
-		roteador.POST("/worker/anomalia/iniciar", app.AnomaliaWorkerHandler.Iniciar)
-		roteador.POST("/worker/anomalia/parar/:jobId", app.AnomaliaWorkerHandler.Parar)
-		roteador.GET("/worker/anomalia/progression/:jobId", app.AnomaliaWorkerHandler.Progression)
-	}
-
-	if app.AnomaliaConsultaHandler != nil {
-		roteador.GET("/anomalias", app.AnomaliaConsultaHandler.Listar)
-	}
-
 	if app.ConvenioHandler != nil {
 		roteador.GET("/convenios", app.ConvenioHandler.Listar)
+	}
+
+	if app.SICONFIHandler != nil {
+		roteador.POST("/siconfi/entes", app.SICONFIHandler.ListarEntes)
+		roteador.POST("/siconfi/dca", app.SICONFIHandler.BuscarDCA)
+		roteador.POST("/siconfi/rgf", app.SICONFIHandler.BuscarRGF)
+		roteador.POST("/siconfi/rreo", app.SICONFIHandler.BuscarRREO)
+		roteador.POST("/siconfi/msc-patrimonial", app.SICONFIHandler.BuscarMSCPatrimonial)
+		roteador.POST("/siconfi/msc-orcamentaria", app.SICONFIHandler.BuscarMSCOrcamentaria)
+		roteador.POST("/siconfi/msc-controle", app.SICONFIHandler.BuscarMSCControle)
+		roteador.POST("/siconfi/extrato-entregas", app.SICONFIHandler.BuscarExtratoEntregas)
+		roteador.GET("/siconfi/anexos-relatorios", app.SICONFIHandler.ListarAnexosRelatorios)
+	}
+
+	if app.OpenCNPJHandler != nil {
+		roteador.GET("/opencnpj/:cnpj", app.OpenCNPJHandler.Buscar)
+	}
+
+	if app.PNCPContratosHandler != nil {
+		roteador.POST("/pncp/contratos/municipio/:codigoIBGE", app.PNCPContratosHandler.BuscarPorMunicipio)
+		roteador.POST("/pncp/contratos/orgao/:cnpj", app.PNCPContratosHandler.BuscarPorOrgao)
+		roteador.POST("/pncp/contratos/uf/:uf", app.PNCPContratosHandler.BuscarPorUF)
+	}
+
+	if app.TSERepositorioHandler != nil {
+		roteador.GET("/tse/repositorio/cargos-distintos", app.TSERepositorioHandler.CargosDistintos)
+		roteador.POST("/tse/repositorio/candidatos", app.TSERepositorioHandler.CandidatoBuscarPorFiltros)
+		roteador.POST("/tse/repositorio/candidato/cpf", app.TSERepositorioHandler.CandidatosBuscarPorCPF)
+		roteador.POST("/tse/repositorio/candidato/id", app.TSERepositorioHandler.CandidatoBuscarPorID)
+		roteador.POST("/tse/repositorio/fornecedores/documento", app.TSERepositorioHandler.FornecedoresBuscarPorDocumento)
+		roteador.POST("/tse/repositorio/doadores/documento", app.TSERepositorioHandler.DoadoresBuscarPorDocumento)
+		roteador.POST("/tse/repositorio/receitas-candidato", app.TSERepositorioHandler.ReceitasCandidatoBuscarPorDoadorID)
+		roteador.POST("/tse/repositorio/receitas-partido", app.TSERepositorioHandler.ReceitasOrgaoBuscarPorDoadorID)
+		roteador.POST("/tse/repositorio/despesas-candidato", app.TSERepositorioHandler.DespesasCandidatoBuscarPorFornecedorID)
+		roteador.POST("/tse/repositorio/despesas-partido", app.TSERepositorioHandler.DespesasPartidoBuscarPorFornecedorID)
+		roteador.POST("/tse/repositorio/partidos", app.TSERepositorioHandler.PartidosBuscarPorIDs)
+		roteador.POST("/tse/repositorio/eleicoes", app.TSERepositorioHandler.EleicoesBuscarPorIDs)
+		roteador.POST("/tse/repositorio/candidatos-eleitos", app.TSERepositorioHandler.CandidatosEleitosPorUF)
 	}
 
 	return roteador

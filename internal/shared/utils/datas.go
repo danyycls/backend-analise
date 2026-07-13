@@ -38,14 +38,6 @@ func ExtrairMeses(dataInicial, dataFinal string) []AnoMes {
 	return meses
 }
 
-func ExtrairMesesDoAno(ano int) []AnoMes {
-	meses := make([]AnoMes, 12)
-	for i := 1; i <= 12; i++ {
-		meses[i-1] = AnoMes{Ano: ano, Mes: i}
-	}
-	return meses
-}
-
 func parseAnoMes(data string) (int, int) {
 	clean := data
 	if len(clean) >= 10 && clean[4] == '-' && clean[7] == '-' {
@@ -85,10 +77,6 @@ func parseAnoMes(data string) (int, int) {
 	}
 
 	return 0, 0
-}
-
-func FormatarMes(ano, mes int) string {
-	return fmt.Sprintf("%04d%02d", ano, mes)
 }
 
 func FormatarPeriodoMes(ano, mes int) (dataInicial, dataFinal string) {

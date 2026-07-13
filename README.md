@@ -1,8 +1,36 @@
-# PODP — Projeto Observatório de Dados Públicos
+# PODP — Projeto Observatório de Dados Públicos (Data Hub)
 
-Painel unificado para análise de dados públicos brasileiros. Consolida informações eleitorais (TSE), parlamentares (Câmara, Senado), gastos públicos (Portal da Transparência, TCU), contratações (PNCP) e dados fiscais (SICONFI/IBGE) em uma única plataforma com APIs REST e WebSocket.
+**P1 do ecossistema PODP.** Data hub central que consolida dados públicos brasileiros: fontes externas (Câmara, Senado, Portal da Transparência, TCU, PNCP, IBGE, SICONFI, OpenCNPJ), APIs REST e dados importados do TSE. Fornece dados brutos e processados para o **P2 (Motor de Análise)**.
 
-O projeto importa dados eleitorais do TSE (CSVs 2006–2024) para um banco PostgreSQL relacional e consulta APIs públicas oficiais em tempo real, permitindo cruzamentos como ligação política entre licitações/contratos e dados eleitorais, além de análises detalhadas de estados e municípios.
+> Este é o **P1 (backend-analise)**. O motor de análise de negócio (ligação política, anomalias, esferas brasileiras) está no **[P2 (projeto2-analise)](https://github.com/danyele/podp-analise)**.
+
+---
+
+## Arquitetura
+
+```
+Frontend → P1 (backend-analise :8080) → fontes externas (IBGE, TSE, Câmara, etc.)
+         → P2 (projeto2-analise :8084) → P1 (via HTTP) + TCU/PortalTransparência (direto)
+```
+
+| Projeto | Papel | Porta |
+|---------|-------|-------|
+| **P1** (este) | Data hub: fontes, APIs REST, clients externos, dados TSE importados | `8080` |
+| **P2** | Motor de análise: ligação política, anomalias, esferas brasileiras, WebSocket | `8084` |
+| **Frontend** | Interface web | `8081` |
+
+### O que está no P2
+
+| Serviço | Rotas P2 |
+|---------|----------|
+| Ligação Política | `POST /busca/contexto` |
+| Anomalias (worker) | `POST /worker/anomalia/iniciar`, `POST /worker/anomalia/parar/:jobId`, `GET /worker/anomalia/progression/:jobId` |
+| Anomalias (consulta) | `GET /anomalias` |
+| Feedback | `POST /feedback` |
+| Estados (dados completos) | `GET /estado/:uf/basico`, `/dados-completos`, `/candidatos`, `/deputados`, `/senadores` |
+| Municípios | `GET /municipio/:codigoIBGE/detalhes/stream` |
+| Financeiro | `GET /estado/:uf/financeiro/stream` |
+| WebSocket Hub | `GET /ws` (canal `anomalia_analise`) |
 
 ---
 
@@ -26,24 +54,6 @@ O projeto importa dados eleitorais do TSE (CSVs 2006–2024) para um banco Postg
 | Fonte | Descrição | Doc |
 |-------|-----------|-----|
 | **TSE — Tribunal Superior Eleitoral** | Dados eleitorais históricos (2006–2024): candidatos, partidos, cargos, doadores, fornecedores, prestação de contas. Importados de planilhas CSV para PostgreSQL relacional | [`docs/db-tse.md`](docs/db-tse.md) · [`docs/tse-importacao.md`](docs/tse-importacao.md) |
-
----
-
-## Análises
-
-### Ligação Política
-
-Cruza documentos de licitações/contratos com dados eleitorais do **TSE** (fornecedores/doadores), enriquece com **OpenCNPJ** (razão social, sócios, situação cadastral) e sanções do **TCU** (contas irregulares, inidôneos, inabilitados). Utiliza **Redis** como cache. Depende dos dados do TSE persistidos em PostgreSQL.
-
-- **Rota:** `POST /busca/contexto`
-- **Doc:** [`docs/mapeamento-de-rotas.md#ligação-política`](docs/mapeamento-de-rotas.md#ligação-política)
-
-### Detalhe Município
-
-Consulta dados consolidados de um município a partir do código IBGE, combinando informações do **SICONFI** (dados contábeis/fiscais) e **PNCP** (contratações públicas). Resultados entregues via WebSocket para processamento assíncrono.
-
-- **Rota:** `GET /municipio/:codigoIBGE/detalhes/stream` (WebSocket)
-- **Doc:** [`docs/mapeamento-de-rotas.md#município`](docs/mapeamento-de-rotas.md#município)
 
 ---
 
@@ -102,7 +112,6 @@ backend-analise/
 │   │   │   └── tcu/                 # TCU
 │   │   ├── estadual/                # Dados estaduais
 │   │   └── municipal/               # Dados municipais
-│   ├── ligacao-politica/            # Análise de ligação política
 │   └── shared/                      # Código compartilhado
 │       ├── clients/                 # Clientes HTTP externos (8 APIs)
 │       ├── database/                # Pool PostgreSQL
@@ -124,10 +133,9 @@ backend-analise/
 │   │   ├── siconfi.md
 │   │   └── tcu.md
 │   ├── dev-roadmap.md               # Roadmap de desenvolvimento
-│   ├── dev-roadmap.md               # Roadmap de desenvolvimento
 │   ├── db-tse.md                    # Arquitetura do banco TSE
 │   ├── tse-importacao.md            # Processo de importação de CSVs
-│   └── mapeamento-de-rotas.md       # Mapeamento completo de todas as 84 rotas
+│   └── mapeamento-de-rotas.md       # Mapeamento completo de todas as rotas
 ├── docker-compose.yml               # PostgreSQL + Redis + Swagger
 ├── Dockerfile                       # Build multi-stage
 └── Makefile                         # Comandos de build/test/lint
@@ -139,7 +147,7 @@ backend-analise/
 
 | Documento | Descrição |
 |-----------|-----------|
-| [`docs/mapeamento-de-rotas.md`](docs/mapeamento-de-rotas.md) | Lista completa de todas as 84 rotas, organizadas por seção, com clients consultados e referências |
+| [`docs/mapeamento-de-rotas.md`](docs/mapeamento-de-rotas.md) | Lista completa de todas as rotas, organizadas por seção, com clients consultados e referências |
 | [`docs/db-tse.md`](docs/db-tse.md) | Arquitetura do banco TSE: entidades, relacionamentos, FKs, índices, migrations |
 | [`docs/tse-importacao.md`](docs/tse-importacao.md) | Processo de importação de CSVs do TSE: formato, pipeline, workers |
 | [`docs/clientes/camara-dos-deputados.md`](docs/clientes/camara-dos-deputados.md) | API da Câmara dos Deputados |
@@ -149,5 +157,4 @@ backend-analise/
 | [`docs/clientes/portal-da-transparencia.md`](docs/clientes/portal-da-transparencia.md) | API do Portal da Transparência |
 | [`docs/clientes/ibge.md`](docs/clientes/ibge.md) | API do IBGE |
 | [`docs/clientes/opencnpj.md`](docs/clientes/opencnpj.md) | API do OpenCNPJ |
-| [`docs/clientes/siconfi.md`](docs/clientes/siconfi.md) | API do SICONFI |
 | [`docs/dev-roadmap.md`](docs/dev-roadmap.md) | Roadmap de desenvolvimento e status das integrações |

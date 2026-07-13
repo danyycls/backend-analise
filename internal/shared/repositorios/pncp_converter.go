@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/danyele/podp/internal/shared/clients/pncp"
 	"github.com/danyele/podp/internal/shared/types"
+	"github.com/danyele/podp/internal/sources/pncp/client"
 )
 
 func ContratoParaPersistido(c pncp.Contrato) ContratoPersistido {

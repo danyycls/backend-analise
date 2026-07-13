@@ -23,10 +23,3 @@ func ApenasDigitos(s string) string {
 	}
 	return b.String()
 }
-
-// NormalizarDocumento retorna apenas os digitos do documento e um booleano
-// indicando se o documento original continha '*' (busca parcial).
-func NormalizarDocumento(documento string) (doc string, parcial bool) {
-	parcial = strings.Contains(documento, "*")
-	return ApenasDigitos(documento), parcial
-}

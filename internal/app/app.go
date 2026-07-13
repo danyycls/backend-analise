@@ -4,65 +4,58 @@ import (
 	"context"
 	"os"
 
-	feedback "github.com/danyele/podp/internal/feedback"
 	"github.com/danyele/podp/internal/shared/database"
 	"github.com/danyele/podp/internal/shared/logger"
 	"github.com/danyele/podp/internal/shared/redis"
 
-	handlerEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/handler"
-	handlerDeputados "github.com/danyele/podp/internal/esferas-brasileiras/federal/deputados/handler"
-	handlerIBGE "github.com/danyele/podp/internal/esferas-brasileiras/federal/ibge/handler"
-	handlerPNCP "github.com/danyele/podp/internal/esferas-brasileiras/federal/pncp/handler"
-	handlerPortalCartoes "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/cartoes/handler"
-	handlerConvenio "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/convenio/handler"
-	handlerPortalDespesas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/despesas/handler"
-	handlerPortalEmendas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/emendas/handler"
-	handlerPortalOrgaos "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/orgaos/handler"
-	handlerPortalPessoas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/pessoas/handler"
-	handlerPortalServidores "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/servidores/handler"
-	handlerSenadores "github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/handler"
-	handlerTCU "github.com/danyele/podp/internal/esferas-brasileiras/federal/tcu/handler"
-	tseHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/handler"
-	importacaoHandler "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/handler"
-	importacaoRepositorios "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/repositorios"
-	importacaoService "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/service"
-	importacaoUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/importacao/usecase"
-	tseUseCase "github.com/danyele/podp/internal/esferas-brasileiras/tse/usecase"
-	handlerLigacao "github.com/danyele/podp/internal/ligacao-politica/handler"
+	handlerDeputados "github.com/danyele/podp/internal/api/deputados/handler"
+	handlerIBGE "github.com/danyele/podp/internal/api/ibge/handler"
+	handlerOpenCNPJ "github.com/danyele/podp/internal/api/opencnpj/handler"
+	handlerPNCPContratos "github.com/danyele/podp/internal/api/pncp/handler"
+	handlerPortalCartoes "github.com/danyele/podp/internal/api/portaltransparencia/cartoes/handler"
+	handlerConvenio "github.com/danyele/podp/internal/api/portaltransparencia/convenio/handler"
+	handlerPortalDespesas "github.com/danyele/podp/internal/api/portaltransparencia/despesas/handler"
+	handlerPortalEmendas "github.com/danyele/podp/internal/api/portaltransparencia/emendas/handler"
+	handlerPortalOrgaos "github.com/danyele/podp/internal/api/portaltransparencia/orgaos/handler"
+	handlerPortalPessoas "github.com/danyele/podp/internal/api/portaltransparencia/pessoas/handler"
+	handlerPortalServidores "github.com/danyele/podp/internal/api/portaltransparencia/servidores/handler"
+	handlerSenadores "github.com/danyele/podp/internal/api/senado/handler"
+	handlerSICONFI "github.com/danyele/podp/internal/api/siconfi/handler"
+	handlerTCU "github.com/danyele/podp/internal/api/tcu/handler"
+	tseHandler "github.com/danyele/podp/internal/api/tse/handler"
+	tseRepositorio "github.com/danyele/podp/internal/api/tse/repositorio"
+	repositoriotse "github.com/danyele/podp/internal/api/tse/repositorio-handler"
+	tseUseCase "github.com/danyele/podp/internal/api/tse/usecase"
 	repositorios "github.com/danyele/podp/internal/shared/repositorios"
+	handlerPNCP "github.com/danyele/podp/internal/sources/pncp/handler"
+	importacaoHandler "github.com/danyele/podp/internal/sources/tse/importacao/handler"
+	importacaoRepositorios "github.com/danyele/podp/internal/sources/tse/importacao/repositorios"
+	importacaoService "github.com/danyele/podp/internal/sources/tse/importacao/service"
+	importacaoUseCase "github.com/danyele/podp/internal/sources/tse/importacao/usecase"
 
-	anomaliaHandler "github.com/danyele/podp/internal/worker/anomalia/handler"
-	anomaliaUseCase "github.com/danyele/podp/internal/worker/anomalia/usecase"
+	clientDeputados "github.com/danyele/podp/internal/sources/deputados/client"
+	clientPNCP "github.com/danyele/podp/internal/sources/pncp/client"
+	clientPortal "github.com/danyele/podp/internal/sources/portaltransparencia/client"
+	clientSenadores "github.com/danyele/podp/internal/sources/senado/client"
+	clientTCU "github.com/danyele/podp/internal/sources/tcu/client"
 
-	clientDeputados "github.com/danyele/podp/internal/shared/clients/deputados"
-	clientPNCP "github.com/danyele/podp/internal/shared/clients/pncp"
-	clientPortal "github.com/danyele/podp/internal/shared/clients/portaltransparencia"
-	clientSenadores "github.com/danyele/podp/internal/shared/clients/senado"
-	clientTCU "github.com/danyele/podp/internal/shared/clients/tcu"
+	"github.com/danyele/podp/internal/sources/ibge/client"
+	"github.com/danyele/podp/internal/sources/opencnpj/client"
+	"github.com/danyele/podp/internal/sources/siconfi/client"
 
-	"github.com/danyele/podp/internal/shared/clients/ibge"
-	"github.com/danyele/podp/internal/shared/clients/opencnpj"
-	"github.com/danyele/podp/internal/shared/clients/siconfi"
-	"github.com/danyele/podp/internal/shared/mongodb"
+	usecaseDeputados "github.com/danyele/podp/internal/api/deputados/usecase"
+	usecaseIBGE "github.com/danyele/podp/internal/api/ibge/usecase"
+	usecasePortalCartoes "github.com/danyele/podp/internal/api/portaltransparencia/cartoes/usecase"
+	usecaseConvenio "github.com/danyele/podp/internal/api/portaltransparencia/convenio/usecase"
+	usecasePortalDespesas "github.com/danyele/podp/internal/api/portaltransparencia/despesas/usecase"
+	usecasePortalEmendas "github.com/danyele/podp/internal/api/portaltransparencia/emendas/usecase"
+	usecasePortalOrgaos "github.com/danyele/podp/internal/api/portaltransparencia/orgaos/usecase"
+	usecasePortalPessoas "github.com/danyele/podp/internal/api/portaltransparencia/pessoas/usecase"
+	usecasePortalServidores "github.com/danyele/podp/internal/api/portaltransparencia/servidores/usecase"
+	usecaseSenadores "github.com/danyele/podp/internal/api/senado/usecase"
+	usecaseTCU "github.com/danyele/podp/internal/api/tcu/usecase"
+	usecasePNCP "github.com/danyele/podp/internal/sources/pncp/usecase"
 
-	usecaseEstadual "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase"
-	dadosfinanceiros "github.com/danyele/podp/internal/esferas-brasileiras/estadual/usecase/dadosfinanceiros"
-	usecaseDeputados "github.com/danyele/podp/internal/esferas-brasileiras/federal/deputados/usecase"
-	usecaseIBGE "github.com/danyele/podp/internal/esferas-brasileiras/federal/ibge/usecase"
-	usecasePNCP "github.com/danyele/podp/internal/esferas-brasileiras/federal/pncp/usecase"
-	usecasePortalCartoes "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/cartoes/usecase"
-	usecaseConvenio "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/convenio/usecase"
-	usecasePortalDespesas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/despesas/usecase"
-	usecasePortalEmendas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/emendas/usecase"
-	usecasePortalOrgaos "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/orgaos/usecase"
-	usecasePortalPessoas "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/pessoas/usecase"
-	usecasePortalServidores "github.com/danyele/podp/internal/esferas-brasileiras/federal/portaltransparencia/servidores/usecase"
-	usecaseSenadores "github.com/danyele/podp/internal/esferas-brasileiras/federal/senadores/usecase"
-	usecaseTCU "github.com/danyele/podp/internal/esferas-brasileiras/federal/tcu/usecase"
-	usecaseMunicipal "github.com/danyele/podp/internal/esferas-brasileiras/municipal/usecase"
-
-	usecaseLigacao "github.com/danyele/podp/internal/ligacao-politica/usecase"
-	"github.com/danyele/podp/internal/shared/services"
 	"github.com/danyele/podp/internal/stream"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -81,18 +74,16 @@ type App struct {
 	SICONFIClient   *siconfi.SICONFIClient
 	PortalClient    *clientPortal.PortalTransparenciaClient
 	RedisCache      *redis.RedisCache
-	FeedbackHandler *feedback.Handler
 
 	LeitorCSVService *importacaoService.LeitorCSVService
 	LeitorCSVUseCase importacaoUseCase.ImportarCSVUseCase
 	LeitorCSVHandler *importacaoHandler.LeitorCSVHandler
 
-	AnalisarLigacaoPoliticaUseCase *usecaseLigacao.AnalisarLigacaoPoliticaUseCase
-	AnalisarLigacaoPoliticaHandler *handlerLigacao.AnalisarLigacaoPoliticaHandler
-
 	AnaliseOrgaoPNCPHandler   *handlerPNCP.AnaliseOrgaoPNCPHandler
 	AnaliseUFMunicipioHandler *handlerPNCP.AnaliseUFMunicipioHandler
 	ListarMunicipiosHandler   *handlerIBGE.ListarMunicipiosHandler
+	ListarEstadosHandler      *handlerIBGE.ListarEstadosHandler
+	BuscarPopulacaoHandler    *handlerIBGE.BuscarPopulacaoHandler
 
 	HandlerBuscaRelacoes    *tseHandler.BuscaRelacoesHandler
 	HandlerConsultaEntidade *tseHandler.ConsultaEntidadeHandler
@@ -163,15 +154,7 @@ type App struct {
 	ListarTodasComissoesHandler              *handlerSenadores.ListarTodasComissoesHandler
 	BuscarComissaoHandler                    *handlerSenadores.BuscarComissaoHandler
 
-	ListarEstadosHandler                  *handlerEstadual.EsferaEstadualListarEstadosHandler
-	BuscarDadosEstadoHandler              *handlerEstadual.EsferaEstadualBuscarDadosCompletosEstadoHandler
-	BuscarBasicoEstadoHandler             *handlerEstadual.EsferaEstadualBuscarDadosBasicosEstadoHandler
-	BuscarCandidatosEstadoHandler         *handlerEstadual.EsferaEstadualBuscarCandidatosHandler
-	BuscarDeputadosEstadoHandler          *handlerEstadual.EsferaEstadualBuscarDeputadosHandler
-	BuscarSenadoresEstadoHandler          *handlerEstadual.EsferaEstadualBuscarSenadoresHandler
-	BuscarMunicipiosPopulacaoHandler      *handlerEstadual.EsferaEstadualBuscarMunicipiosPopulacaoHandler
-	BuscarRecursosFederaisCompletoHandler *handlerEstadual.EsferaEstadualBuscarRecursosFederaisCompletoHandler
-	WSHub                                 *stream.Hub
+	WSHub *stream.Hub
 
 	BuscarSIAPEHandler    *handlerPortalOrgaos.BuscarSIAPEHandler
 	BuscarSIAFIHandler    *handlerPortalOrgaos.BuscarSIAFIHandler
@@ -209,12 +192,12 @@ type App struct {
 	BuscarEmendasHandler          *handlerPortalEmendas.BuscarEmendasHandler
 	BuscarDocumentosEmendaHandler *handlerPortalEmendas.BuscarDocumentosEmendaHandler
 
-	MongoClient             mongodb.Client
-	GerarDescricaoSvc       services.GerarDescricaoVinculoService
-	AnomaliaWorkerHandler   *anomaliaHandler.AnomaliaWorkerHandler
-	AnomaliaConsultaHandler *anomaliaHandler.AnomaliaConsultaHandler
-
 	ConvenioHandler *handlerConvenio.ConsultaConvenioHandler
+
+	SICONFIHandler        *handlerSICONFI.SICONFIHandler
+	OpenCNPJHandler       *handlerOpenCNPJ.OpenCNPJHandler
+	PNCPContratosHandler  *handlerPNCPContratos.PNCPContratosHandler
+	TSERepositorioHandler *repositoriotse.TSERepositorioHandler
 }
 
 func NovoApp(db database.DB, diretorioCSV string) *App {
@@ -251,21 +234,6 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	leitorCSVUseCase := importacaoUseCase.NovoImportarCSVUseCase(pgPool, pgPoolLeitura, leitorCSVService)
 	leitorCSVHandler := importacaoHandler.NovoLeitorCSVHandler(leitorCSVUseCase)
 
-	normalizarSvc := services.NovoNormalizarDocumentosService()
-	buscarSvc := services.NovoBuscarLigacaoPoliticaTSEService()
-	verificarTcuSvc := services.NovoVerificarSancoesTCUService(tcuClient)
-	verificarServSvc := services.NovoVerificarServidorPublicoService(portalClient)
-	verificarPessoaPublicaSvc := services.NovoVerificarPessoaPublicaService(portalClient)
-	gerarDescricaoSvc := services.NovoGerarDescricaoVinculoService()
-
-	casoUsoLigacao := usecaseLigacao.NovoAnalisarLigacaoPoliticaUseCase(db, normalizarSvc, buscarSvc, verificarTcuSvc, verificarServSvc)
-	handlerLigacao := handlerLigacao.NovoAnalisarLigacaoPoliticaHandler(casoUsoLigacao, redisCache)
-
-	mongoClient, errMongo := mongodb.NovoMongoClient(context.Background())
-	if errMongo != nil {
-		log.Fatal("mongodb indisponivel", "erro", errMongo)
-	}
-
 	relacoesHandlerBusca := tseHandler.NovoBuscarRelacoesHandler(tseUseCase.NovoBuscarRelacoesUseCase(db))
 	relacoesHandlerEntidade := tseHandler.NovoConsultarEntidadeHandler(tseUseCase.NovoConsultarEntidadeUseCase(db))
 
@@ -280,22 +248,9 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		usecasePNCP.NovoConsultaContratoUFMunicipioPNCPUseCase(pncpClient, opencnpjClient, redisCache, pncpRepo),
 	)
 
-	anomaliaWorkerUC := anomaliaUseCase.NovoAnaliseAnomaliaWorkerUseCase(
-		normalizarSvc,
-		buscarSvc,
-		verificarTcuSvc,
-		verificarServSvc,
-		verificarPessoaPublicaSvc,
-		gerarDescricaoSvc,
-		db,
-		mongoClient,
-	)
-	anomaliaWorkerHandler := anomaliaHandler.NovoAnomaliaWorkerHandler(anomaliaWorkerUC)
-
-	anomaliaConsutaUC := anomaliaUseCase.NovoAnomaliaConsultaUseCase(mongoClient)
-	anomaliaConsultaHandler := anomaliaHandler.NovoAnomaliaConsultaHandler(anomaliaConsutaUC)
-
 	listarMunicipiosUC := usecaseIBGE.NovoListarMunicipiosUseCase(ibgeClient)
+	listarEstadosUC := usecaseIBGE.NovoListarEstadosUseCase(ibgeClient)
+	buscarPopulacaoUC := usecaseIBGE.NovoBuscarPopulacaoUseCase(ibgeClient)
 
 	convenioUC := usecaseConvenio.NovoConsultaConvenioUseCase(db)
 	convenioHandler := handlerConvenio.NovoConsultaConvenioHandler(convenioUC)
@@ -360,23 +315,6 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	listarTodasComissoesUC := usecaseSenadores.NovoListarTodasComissoesUseCase(senadoClient)
 	buscarComissaoUC := usecaseSenadores.NovoBuscarComissaoUseCase(senadoClient)
 
-	listarEstadosUC := usecaseEstadual.NovoEsferaEstadualListarEstadosUseCase(ibgeClient)
-	dadosCompletosUC := usecaseEstadual.NovoEsferaEstadualBuscarDadosCompletosEstadoUseCase(db, ibgeClient, deputadosClient, senadoClient)
-	basicoEstadoUC := usecaseEstadual.NovoEsferaEstadualBuscarDadosBasicosEstadoUseCase(ibgeClient)
-	candidatosEstadoUC := usecaseEstadual.NovoEsferaEstadualBuscarCandidatosUseCase(db)
-	deputadosEstadoUC := usecaseEstadual.NovoEsferaEstadualBuscarDeputadosUseCase(deputadosClient)
-	senadoresEstadoUC := usecaseEstadual.NovoEsferaEstadualBuscarSenadoresUseCase(senadoClient)
-	municipiosPopulacaoUC := usecaseEstadual.NovoEsferaEstadualBuscarMunicipiosPopulacaoUseCase(ibgeClient)
-
-	baseFinanceiroUC := dadosfinanceiros.NovoBaseFinanceiroUseCase(siconfiClient, ibgeClient, redisCache)
-	despesaPessoalUC := dadosfinanceiros.NovoEsferaEstadualBuscarDespesaPessoalUseCase(baseFinanceiroUC)
-	despesaCategoriaUC := dadosfinanceiros.NovoEsferaEstadualBuscarDespesaCategoriaUseCase(baseFinanceiroUC)
-	rreoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRREOUseCase(baseFinanceiroUC)
-	recursosFederaisUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisUseCase(portalClient, redisCache)
-	recursosFederaisCompletoUC := dadosfinanceiros.NovoEsferaEstadualBuscarRecursosFederaisCompletoUseCase(portalClient, redisCache)
-
-	detalhesMunicipioUC := usecaseMunicipal.NovoEsferaMunicipalBuscarDetalhesUseCase(siconfiClient, pncpClient, redisCache, pncpRepo)
-
 	siapeUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAPEUseCase(portalClient)
 	siafiUC := usecasePortalOrgaos.NovoBuscarOrgaosSIAFIUseCase(portalClient)
 	fisicaUC := usecasePortalPessoas.NovoBuscarPessoasFisicasUseCase(portalClient)
@@ -413,9 +351,6 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 	emendasUC := usecasePortalEmendas.NovoBuscarEmendasUseCase(portalClient)
 	documentosEmendaUC := usecasePortalEmendas.NovoBuscarDocumentosEmendaUseCase(portalClient)
 
-	feedbackUsecase := &feedback.SaveFeedbackUsecase{Redis: redisCache}
-	feedbackHandler := &feedback.Handler{Usecase: feedbackUsecase}
-
 	return &App{
 		DB:     db,
 		PgPool: pgPool,
@@ -429,18 +364,16 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		SICONFIClient:   siconfiClient,
 		PortalClient:    portalClient,
 		RedisCache:      redisCache,
-		FeedbackHandler: feedbackHandler,
 
 		LeitorCSVService: leitorCSVService,
 		LeitorCSVUseCase: leitorCSVUseCase,
 		LeitorCSVHandler: leitorCSVHandler,
 
-		AnalisarLigacaoPoliticaUseCase: casoUsoLigacao,
-		AnalisarLigacaoPoliticaHandler: handlerLigacao,
-
 		AnaliseOrgaoPNCPHandler:   pncpAnaliseOrgaoHandler,
 		AnaliseUFMunicipioHandler: pncpAnaliseUFMunicipioHandler,
 		ListarMunicipiosHandler:   handlerIBGE.NovoListarMunicipiosHandler(listarMunicipiosUC),
+		ListarEstadosHandler:      handlerIBGE.NovoListarEstadosHandler(listarEstadosUC),
+		BuscarPopulacaoHandler:    handlerIBGE.NovoBuscarPopulacaoHandler(buscarPopulacaoUC),
 
 		HandlerBuscaRelacoes:    relacoesHandlerBusca,
 		HandlerConsultaEntidade: relacoesHandlerEntidade,
@@ -512,24 +445,9 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		ListarTodasComissoesHandler:              handlerSenadores.NovoListarTodasComissoesHandler(listarTodasComissoesUC),
 		BuscarComissaoHandler:                    handlerSenadores.NovoBuscarComissaoHandler(buscarComissaoUC),
 
-		ListarEstadosHandler:                  handlerEstadual.NovoEsferaEstadualListarEstadosHandler(listarEstadosUC),
-		BuscarDadosEstadoHandler:              handlerEstadual.NovoEsferaEstadualBuscarDadosCompletosEstadoHandler(dadosCompletosUC),
-		BuscarBasicoEstadoHandler:             handlerEstadual.NovoEsferaEstadualBuscarDadosBasicosEstadoHandler(basicoEstadoUC),
-		BuscarCandidatosEstadoHandler:         handlerEstadual.NovoEsferaEstadualBuscarCandidatosHandler(candidatosEstadoUC),
-		BuscarDeputadosEstadoHandler:          handlerEstadual.NovoEsferaEstadualBuscarDeputadosHandler(deputadosEstadoUC),
-		BuscarSenadoresEstadoHandler:          handlerEstadual.NovoEsferaEstadualBuscarSenadoresHandler(senadoresEstadoUC),
-		BuscarMunicipiosPopulacaoHandler:      handlerEstadual.NovoEsferaEstadualBuscarMunicipiosPopulacaoHandler(municipiosPopulacaoUC),
-		BuscarRecursosFederaisCompletoHandler: handlerEstadual.NovoEsferaEstadualBuscarRecursosFederaisCompletoHandler(recursosFederaisCompletoUC),
-
 		WSHub: stream.NewHub(
 			pncpAnaliseOrgaoHandler,
 			pncpAnaliseUFMunicipioHandler,
-			anomaliaWorkerHandler,
-			despesaPessoalUC,
-			despesaCategoriaUC,
-			rreoUC,
-			recursosFederaisUC,
-			detalhesMunicipioUC,
 		),
 
 		BuscarSIAPEHandler:    handlerPortalOrgaos.NovoBuscarSIAPEHandler(siapeUC),
@@ -568,11 +486,11 @@ func NovoApp(db database.DB, diretorioCSV string) *App {
 		BuscarEmendasHandler:          handlerPortalEmendas.NovoBuscarEmendasHandler(emendasUC),
 		BuscarDocumentosEmendaHandler: handlerPortalEmendas.NovoBuscarDocumentosEmendaHandler(documentosEmendaUC),
 
-		MongoClient:             mongoClient,
-		GerarDescricaoSvc:       gerarDescricaoSvc,
-		AnomaliaWorkerHandler:   anomaliaWorkerHandler,
-		AnomaliaConsultaHandler: anomaliaConsultaHandler,
-
 		ConvenioHandler: convenioHandler,
+
+		SICONFIHandler:        handlerSICONFI.NovoSICONFIHandler(siconfiClient),
+		OpenCNPJHandler:       handlerOpenCNPJ.NovoOpenCNPJHandler(opencnpjClient),
+		PNCPContratosHandler:  handlerPNCPContratos.NovoPNCPContratosHandler(pncpClient),
+		TSERepositorioHandler: repositoriotse.NovoTSERepositorioHandler(tseRepositorio.Novo(db)),
 	}
 }
