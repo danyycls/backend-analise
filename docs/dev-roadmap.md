@@ -4,14 +4,15 @@
 
 | Integração | Status | Documentação | Código | Observações |
 |---|---|---|---|---|
-| PNCP | ✅ Integrado | `docs/clientes/pncp.md` | `internal/shared/clients/pncp/` | |
-| Senado Federal | ✅ Integrado | `docs/clientes/senado-federal.md` | `internal/shared/clients/senado/` | |
-| Câmara dos Deputados | ✅ Integrado | `docs/clientes/camara-dos-deputados.md` | `internal/shared/clients/deputados/` | |
-| IBGE | ✅ Integrado | `docs/clientes/ibge.md` | `internal/shared/clients/ibge/` | |
-| TCU | ✅ Integrado | `docs/clientes/tcu.md` | `internal/shared/clients/tcu/` | |
-| Portal da Transparência | ✅ Integrado | `docs/clientes/portal-da-transparencia.md` | `internal/shared/clients/portaltransparencia/` | Requer chave de API |
-| SICONFI | ⚠️ Problema | `docs/clientes/siconfi.md` | `internal/shared/clients/siconfi/` | Erro de permissão em endpoints públicos |
-| TSE (Prestação de Contas / Candidatos) | ⚠️ Problema | `docs/tse-importacao.md` | `internal/esferas-brasileiras/tse/` | Candidato eleito não tem vínculo direto com município/UF |
+| PNCP | ✅ Integrado | `docs/clientes/pncp.md` | `internal/sources/pncp/client/` | |
+| Senado Federal | ✅ Integrado | `docs/clientes/senado-federal.md` | `internal/sources/senado/client/` | |
+| Câmara dos Deputados | ✅ Integrado | `docs/clientes/camara-dos-deputados.md` | `internal/sources/deputados/client/` | |
+| IBGE | ✅ Integrado | `docs/clientes/ibge.md` | `internal/sources/ibge/client/` | |
+| TCU | ✅ Integrado | `docs/clientes/tcu.md` | `internal/sources/tcu/client/` | |
+| Portal da Transparência | ✅ Integrado | `docs/clientes/portal-da-transparencia.md` | `internal/sources/portaltransparencia/client/` | Requer chave de API |
+| OpenCNPJ | ✅ Integrado | `docs/clientes/opencnpj.md` | `internal/sources/opencnpj/client/` | |
+| SICONFI | ⚠️ Problema | `docs/clientes/siconfi.md` | `internal/sources/siconfi/client/` | Erro de permissão em endpoints públicos |
+| TSE (Prestação de Contas / Candidatos) | ⚠️ Problema | `docs/tse-importacao.md` | `internal/sources/tse/` | Candidato eleito não tem vínculo direto com município/UF |
 | SERPRO — Consulta Dívida Ativa | 📋 Pendente | — | — | |
 | SIOP | 📋 Pendente | — | — | |
 | BNDES | 📋 Pendente | — | — | |

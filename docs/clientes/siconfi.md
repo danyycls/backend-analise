@@ -9,6 +9,12 @@
 **Documentação de integração client:** https://apidatalake.tesouro.gov.br/docs/siconfi/
 **Base URL:** https://apidatalake.tesouro.gov.br/ords/siconfi/tt
 
+### Restrições da API
+
+- **Rate limit:** 1 requisição por segundo.
+- **Paginação padrão:** 5000 itens por página.
+- **Tratamento de erros:** A API pode retornar erro de conta bloqueada (`AccountIsLocked`), que é tratado pelo cliente com o erro `ErrSICONFIIndisponivel`.
+
 ## APIs Integradas
 
 ### Entes

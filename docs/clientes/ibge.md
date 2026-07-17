@@ -24,4 +24,4 @@ https://servicodados.ibge.gov.br/api/v3/agregados (Agregados)
 
 | Método | URL | Input | Output | Descrição |
 |--------|-----|-------|--------|-----------|
-| BuscarPopulacao | `/6579/periods/-6/variaveis/9324` | `municipioIDs []int` | `map[int]int64` | Estimativas populacionais dos municípios (agregado 6579, variável 9324). Em caso de falha, faz fallback para o agregado 4700, variável 93. |
+| BuscarPopulacao | `/6579/periods/-6/variaveis/9324` | `municipioIDs []int` | `map[int]int64` | Estimativas populacionais dos municípios (agregado 6579, variável 9324). Em caso de falha, faz fallback para o agregado 8395 (Censo 2022), período 2022, variável 12494. |

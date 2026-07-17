@@ -64,6 +64,40 @@
 |--------|-----|-------|--------|-----------|
 | ListarReferencias | `/referencias/{tipo}` | `tipo string` | `[]Referencia` | Lista valores de domínio (tabelas de referência) de um tipo, como tipos de eventos, órgãos, etc. |
 
+### Partidos
+
+| Método | URL | Input | Output | Descrição |
+|--------|-----|-------|--------|-----------|
+| ListarPartidos | `/partidos` | `params map[string]string` | `[]Partido` | Lista os partidos políticos registrados. |
+| BuscarPartido | `/partidos/{id}` | `id int` | `*Partido` | Retorna informações detalhadas sobre um partido. |
+| ListarMembrosPartido | `/partidos/{id}/membros` | `idPartido int` | `[]MembroPartido` | Lista os parlamentares membros de um partido. |
+
+### Proposições
+
+| Método | URL | Input | Output | Descrição |
+|--------|-----|-------|--------|-----------|
+| ListarProposicoes | `/proposicoes` | `params map[string]string` | `[]Proposicao` | Lista proposições legislativas, com filtros opcionais. |
+| BuscarProposicao | `/proposicoes/{id}` | `id int` | `*ProposicaoDetalhe` | Retorna informações detalhadas sobre uma proposição. |
+| ListarTramitacoes | `/proposicoes/{id}/tramitacoes` | `idProposicao int` | `[]Tramitacao` | Lista as tramitações de uma proposição. |
+| ListarAutores | `/proposicoes/{id}/autores` | `idProposicao int` | `[]Autor` | Lista os autores de uma proposição. |
+| ListarTemas | `/proposicoes/{id}/temas` | `idProposicao int` | `[]Tema` | Lista os temas de uma proposição. |
+| ListarRelacionadas | `/proposicoes/{id}/relacionadas` | `idProposicao int` | `[]Proposicao` | Lista proposições relacionadas. |
+
+### Eventos
+
+| Método | URL | Input | Output | Descrição |
+|--------|-----|-------|--------|-----------|
+| ListarEventos | `/eventos` | `params map[string]string` | `[]Evento` | Lista eventos, com filtros opcionais. |
+| BuscarEvento | `/eventos/{id}` | `id int` | `*EventoDetalhe` | Retorna informações detalhadas sobre um evento. |
+
+### Órgãos da Câmara
+
+| Método | URL | Input | Output | Descrição |
+|--------|-----|-------|--------|-----------|
+| ListarOrgaosCamara | `/orgaos` | `params map[string]string` | `[]OrgaoCamara` | Lista os órgãos da Câmara dos Deputados. |
+| BuscarOrgaoCamara | `/orgaos/{id}` | `id int` | `*OrgaoCamaraDetalhe` | Retorna informações detalhadas sobre um órgão. |
+| ListarMembrosOrgaoCamara | `/orgaos/{id}/membros` | `idOrgao int` | `[]MembroOrgao` | Lista os membros de um órgão. |
+
 ### Votações
 
 | Método | URL | Input | Output | Descrição |

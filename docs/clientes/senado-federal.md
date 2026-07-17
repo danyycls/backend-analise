@@ -59,3 +59,9 @@
 | Método | URL | Input | Output | Descrição |
 |--------|-----|-------|--------|-----------|
 | ListarOrcamento | `/orcamento/lista` | — | `[]LoteEmendasOrcamento` | Lista lotes de emendas orçamentárias. |
+
+### Documentos
+
+| Método | URL | Input | Output | Descrição |
+|--------|-----|-------|--------|-----------|
+| BaixarDocumentoEmenda | `https://legis.senado.leg.br/sdleg-getter/documento?dm={id}` | `idDocumento int` | `[]byte`, `string` | Baixa o conteúdo de um documento de emenda pelo ID. Retorna o bytes do documento e o Content-Type. |

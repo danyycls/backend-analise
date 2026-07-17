@@ -23,7 +23,7 @@ func NovoBuscarRelacoesUseCase(db database.DB) *BuscarRelacoesUseCase {
 	return &BuscarRelacoesUseCase{db: db}
 }
 
-func (u *BuscarRelacoesUseCase) Executar(ctx context.Context, cnpj string) (*tsetypes.RelacoesResponse, error) {
+func (u *BuscarRelacoesUseCase) Executar(ctx context.Context, documento string) (*tsetypes.RelacoesResponse, error) {
 	repo := repositorio.Novo(u.db)
 
 	resp := &tsetypes.RelacoesResponse{
@@ -31,15 +31,31 @@ func (u *BuscarRelacoesUseCase) Executar(ctx context.Context, cnpj string) (*tse
 		Receitas: []tsetypes.ReceitaRelacao{},
 	}
 
-	forn, err := repo.FornecedorBuscarPorCNPJExato(ctx, cnpj)
+	forns, err := repo.FornecedoresBuscarPorDocumento(ctx, []string{documento})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if forn != nil {
+	if len(forns) > 0 {
+		forn := forns[0]
 		resp.Fornecedor = &tsetypes.FornecedorEnriquecido{
-			CPFCNPJ: forn.CPFCNPJ,
-			Nome:    forn.Nome,
-			NomeRFB: forn.NomeRFB,
+			CPFCNPJ:                    forn.CPFCNPJ,
+			Nome:                       forn.Nome,
+			NomeRFB:                    forn.NomeRFB,
+			TipoFornecedorCodigo:       forn.TipoFornecedorCodigo,
+			TipoFornecedorDescricao:    forn.TipoFornecedorDescricao,
+			CNAECodigo:                 forn.CNAECodigo,
+			CNAEDescricao:              forn.CNAEDescricao,
+			EsferaPartidariaCodigo:     forn.EsferaPartidariaCodigo,
+			EsferaPartidariaDescricao:  forn.EsferaPartidariaDescricao,
+			UFSigla:                    forn.UFSigla,
+			MunicipioNome:              forn.MunicipioNome,
+			SQCandidatoRelacionado:     forn.SQCandidatoRelacionado,
+			NumeroCandidatoRelacionado: forn.NumeroCandidatoRelacionado,
+			CargoCodigoRelacionado:     forn.CargoCodigoRelacionado,
+			CargoDescricaoRelacionada:  forn.CargoDescricaoRelacionada,
+			PartidoNumeroRelacionado:   forn.PartidoNumeroRelacionado,
+			PartidoSiglaRelacionado:    forn.PartidoSiglaRelacionado,
+			PartidoNomeRelacionado:     forn.PartidoNomeRelacionado,
 		}
 
 		despsCand, _ := repo.DespesasCandidatoBuscarPorFornecedorIDComPrestacao(ctx, forn.ID.String())
@@ -55,11 +71,12 @@ func (u *BuscarRelacoesUseCase) Executar(ctx context.Context, cnpj string) (*tse
 		}
 	}
 
-	doador, err := repo.DoadorBuscarPorCNPJExato(ctx, cnpj)
+	doadores, err := repo.DoadoresBuscarPorDocumento(ctx, []string{documento})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if doador != nil {
+	if len(doadores) > 0 {
+		doador := doadores[0]
 		resp.Doador = &tsetypes.DoadorRelacoes{
 			CPFCNPJ: doador.CPFCNPJ,
 			Nome:    doador.Nome,

@@ -1,14 +1,19 @@
-# Banco TSE — Arquitetura de Dados
+# Banco de Dados — Arquitetura de Dados
 
 ## Visão Geral
 
-Os dados do TSE (Tribunal Superior Eleitoral) são originalmente disponibilizados como planilhas CSV por ano eleitoral e por UF. O projeto importa esses CSVs para um banco PostgreSQL relacional, normalizando as entidades e mantendo a rastreabilidade por `arquivo_importado`.
+O banco PostgreSQL do ODT armazena dados de múltiplas fontes públicas importadas via CSV e via API:
 
-Todos os dados históricos de **2006 a 2024** estão mapeados, sendo que a partir de **2018** também estão disponíveis os dados de prestação de contas (receitas e despesas de campanha).
+- **TSE (Tribunal Superior Eleitoral)**: dados eleitorais históricos (2006–2024), incluindo candidatos, partidos, eleições, prestação de contas, receitas e despesas de campanha.
+- **Portal da Transparência**: convênios e acordos firmados pela Administração Pública Federal.
+- **PNCP (Portal Nacional de Contratações Públicas)**: contratos, licitações, fornecedores e societários.
 
-- **Soft delete**: todas as tabelas possuem `deleted_at TIMESTAMPTZ`
+### Padrões do Banco
+
+- **Soft delete**: tabelas TSE e convênios possuem `deleted_at TIMESTAMPTZ`
 - **Auditoria**: `created_at` e `updated_at` em todas as tabelas
 - **IDs**: UUID gerados via `gen_random_uuid()` (pgcrypto)
+- **Hash de integridade**: `arquivo_importado` possui `hash_sha256` para rastreabilidade de conteúdo
 
 ---
 
@@ -243,7 +248,149 @@ Rastreabilidade de importação de CSVs.
 | `tipo` | VARCHAR(100) | Tipo (ex: "consulta_cand") |
 | `uf` | VARCHAR(2) | UF |
 | `total_registros` | INTEGER | |
+| `hash_sha256` | VARCHAR(64) | Hash SHA-256 do conteúdo (idempotência) |
 | `criado_em` | TIMESTAMPTZ | |
+
+### 15. `convenio`
+Convênios e acordos do Portal da Transparência (importados de CSV).
+
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | UUID | PK |
+| `numero_convenio` | VARCHAR(50) | Número do convênio |
+| `uf` | VARCHAR(2) | UF do município convenente |
+| `codigo_siafi_municipio` | VARCHAR(20) | Código SIAFI do município |
+| `nome_municipio` | VARCHAR(255) | Nome do município |
+| `situacao_convenio` | VARCHAR(100) | Situação (ativo, concluído, etc.) |
+| `numero_original` | VARCHAR(100) | Número original do instrumento |
+| `numero_processo` | VARCHAR(100) | Número do processo administrativo |
+| `objeto_convenio` | TEXT | Descrição do objeto do convênio |
+| `codigo_orgao_superior` | VARCHAR(20) | Código do órgão superior |
+| `nome_orgao_superior` | VARCHAR(255) | Nome do órgão superior |
+| `codigo_orgao_concedente` | VARCHAR(20) | Código do órgão concedente |
+| `nome_orgao_concedente` | VARCHAR(255) | Nome do órgão concedente |
+| `codigo_ug_concedente` | VARCHAR(20) | Código da unidade gestora |
+| `nome_ug_concedente` | VARCHAR(255) | Nome da unidade gestora |
+| `codigo_convenente` | VARCHAR(20) | CPF/CNPJ do convenente |
+| `tipo_convenente` | VARCHAR(100) | Tipo de pessoa do convenente |
+| `nome_convenente` | VARCHAR(255) | Nome do convenente |
+| `tipo_ente_convenente` | VARCHAR(100) | Tipo de ente (município, estado, etc.) |
+| `tipo_instrumento` | VARCHAR(100) | Tipo (convênio, contrato de repasse, etc.) |
+| `valor_convenio` | NUMERIC(18,2) | Valor total do convênio |
+| `valor_liberado` | NUMERIC(18,2) | Valor total liberado |
+| `data_publicacao` | DATE | Data de publicação |
+| `data_inicio_vigencia` | DATE | Início da vigência |
+| `data_final_vigencia` | DATE | Fim da vigência |
+| `valor_contrapartida` | NUMERIC(18,2) | Valor da contrapartida |
+| `data_ultima_liberacao` | DATE | Data da última liberação |
+| `valor_ultima_liberacao` | NUMERIC(18,2) | Valor da última liberação |
+| `created_at` | TIMESTAMPTZ | Data de criação do registro |
+| `updated_at` | TIMESTAMPTZ | Data de atualização |
+| `deleted_at` | TIMESTAMPTZ | Soft delete |
+
+### 16. `amparo_legal`
+Tabela de apoio com amparos legais para licitações.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `codigo` | INTEGER | PK | |
+| `nome` | TEXT | NOT NULL | |
+| `descricao` | TEXT | | |
+
+### 17. `licitacao_fornecedor`
+Dados cadastrais de fornecedores de licitações.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `cnpj` | VARCHAR(14) | PK | |
+| `razao_social` | TEXT | NOT NULL | |
+| `dados_completos` | JSONB | | Dados completos do fornecedor |
+
+### 18. `socio`
+Sócios de pessoas jurídicas.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `id` | UUID | PK | |
+| `cnpj_cpf_socio` | VARCHAR(14) | UNIQUE | CPF/CNPJ do sócio |
+| `nome_socio` | TEXT | | Nome do sócio |
+
+### 19. `fornecedor_socio`
+Relação entre fornecedores e seus sócios.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `cnpj_fornecedor` | VARCHAR(14) | PK, FK → `licitacao_fornecedor(cnpj)` | |
+| `socio_id` | UUID | PK, FK → `socio(id)` | |
+| `data_entrada_sociedade` | TEXT | | |
+| `identificador_socio` | TEXT | | |
+| `nome_socio` | TEXT | | |
+| `qualificacao_socio` | TEXT | | |
+| `nome_representante` | TEXT | | |
+| `qualificacao_representante` | TEXT | | |
+| `representante_legal` | TEXT | | |
+| `faixa_etaria` | TEXT | | |
+| `pais_codigo` | TEXT | | |
+| `pais_descricao` | TEXT | | |
+
+### 20. `licitacao_contrato`
+Contratos de licitações do PNCP.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `id` | UUID | PK | |
+| `numero_controle_pncp` | VARCHAR(255) | UNIQUE, NOT NULL | Número de controle PNCP |
+| `cnpj_orgao` | VARCHAR(14) | NOT NULL | CNPJ do órgão |
+| `ug_uf_sigla` | VARCHAR(2) | | UF da UG |
+| `ug_codigo_ibge` | VARCHAR(7) | | Código IBGE da UG |
+| `data_publicacao_pncp` | DATE | | Data de publicação |
+| `data_assinatura` | DATE | | Data de assinatura |
+| `data_inicio_vigencia` | DATE | | Início da vigência |
+| `data_termino_vigencia` | DATE | | Término da vigência |
+| `valor_global` | NUMERIC(18,2) | | Valor global |
+| `valor_inicial` | NUMERIC(18,2) | | Valor inicial |
+| `valor_total_estimado` | NUMERIC(18,2) | | Valor total estimado |
+| `valor_total_homologado` | NUMERIC(18,2) | | Valor total homologado |
+| `ni_fornecedor` | VARCHAR(14) | | CNPJ/CPF do fornecedor |
+| `codigo_amparo_legal` | INTEGER | FK → `amparo_legal(codigo)` | |
+| `numero_contrato` | VARCHAR(50) | | Número do contrato |
+| `codigo_contrato` | VARCHAR(50) | | Código do contrato |
+| `codigo_tipo_contrato` | INTEGER | | |
+| `tipo_contrato_nome` | TEXT | | |
+| `codigo_ug` | VARCHAR(20) | | |
+| `nome_ug` | TEXT | | |
+| `ug_municipio_nome` | TEXT | | |
+| `ug_uf_nome` | TEXT | | |
+| `modalidade_nome` | TEXT | | |
+| `codigo_orgao` | VARCHAR(20) | | |
+| `nome_orgao` | TEXT | | |
+| `nome_orgao_sub` | TEXT | | |
+| `objeto_contrato` | TEXT | | Objeto do contrato |
+| `numero_licitacao` | VARCHAR(50) | | |
+| `origem_licitacao` | TEXT | | |
+| `produto` | TEXT | | |
+| `subtipo_contrato` | TEXT | | |
+| `ano_contrato` | INTEGER | | |
+| `nome_razao_social_fornecedor` | TEXT | | |
+| `dados_completos` | JSONB | NOT NULL DEFAULT '{}' | Dados completos originais |
+| `created_at` | TIMESTAMPTZ | NOT NULL | |
+| `updated_at` | TIMESTAMPTZ | NOT NULL | |
+
+### 21. `licitacao_busca_controle`
+Controle de buscas realizadas no PNCP.
+
+| Coluna | Tipo | Restrição | Descrição |
+|--------|------|-----------|-----------|
+| `id` | UUID | PK | |
+| `tipo_busca` | VARCHAR(20) | NOT NULL | Tipo (municipio, uf, orgao) |
+| `valor_busca` | VARCHAR(20) | NOT NULL | Valor buscado |
+| `ano` | INTEGER | NOT NULL | Ano de referência |
+| `mes` | INTEGER | NOT NULL | Mês de referência |
+| `data_inicial` | DATE | NOT NULL | |
+| `data_final` | DATE | NOT NULL | |
+| `total_contratos_encontrados` | INTEGER | NOT NULL DEFAULT 0 | |
+| `ultima_atualizacao` | TIMESTAMPTZ | NOT NULL | |
+| UNIQUE | | `(tipo_busca, valor_busca, ano, mes)` | |
 
 ---
 
@@ -282,12 +429,20 @@ prestacao_contas ──┬── despesa_candidato
 
 ## CSV → Tabelas (Mapeamento)
 
+### TSE
+
 | Arquivo CSV (pasta) | Tabela(s) destino | Anos disponíveis |
 |---|---|---|
 | `consulta_cand_<ano>/` | `candidato`, `eleicao`, `unidade_eleitoral`, `partido` | 2006–2024 |
 | `bem_candidato_<ano>/` | `bem_candidato` | 2006–2024 |
 | `prestacao_de_contas_eleitorais_candidatos_<ano>/` | `prestacao_contas` (CANDIDATO), `despesa_candidato`, `receita_candidato`, `receita_doador_originario_candidato`, `fornecedor`, `doador` | 2018–2024 |
 | `prestacao_de_contas_eleitorais_orgaos_partidarios_<ano>/` | `prestacao_contas` (ORGAO_PARTIDARIO), `despesa_orgao_partidario`, `receita_orgao_partidario`, `receita_doador_originario_orgao_partidario`, `fornecedor`, `doador` | 2018–2024 |
+
+### Portal da Transparência
+
+| Arquivo CSV (pasta) | Tabela(s) destino |
+|---|---|
+| `*_convenios.csv` | `convenio` |
 
 Todos os CSVs são particionados por UF (ex: `consulta_cand_2024_SP.csv`), exceto quando o volume exige sub-partição (`_partaa`, `_partab`, etc.).
 
@@ -311,7 +466,15 @@ As migrations estão em `internal/shared/migrations/schema/`:
 
 | Arquivo | Descrição |
 |---|---|
-| `000001_esquema_inicial.up.sql` | Cria todas as tabelas, índices e constraints |
-| `000001_esquema_inicial.down.sql` | Remove todas as tabelas |
+| `000001_esquema_inicial.up.sql` | Cria tabelas TSE: eleicao, unidade_eleitoral, partido, candidato, bem_candidato, fornecedor, doador, prestacao_contas, despesa_candidato, despesa_orgao_partidario, receita_candidato, receita_orgao_partidario, receita_doador_originario_candidato, receita_doador_originario_orgao_partidario, arquivo_importado |
+| `000001_esquema_inicial.down.sql` | Remove todas as tabelas TSE |
 | `000002_remove_uq_partido_sigla.up.sql` | Remove unique constraint de `partido.sigla` |
 | `000002_remove_uq_partido_sigla.down.sql` | Reverte a remoção |
+| `000003_convenios_portal_transparencia.up.sql` | Cria tabela `convenio` com índices (pg_trgm para busca textual) |
+| `000003_convenios_portal_transparencia.down.sql` | Remove tabela `convenio` |
+| `000004_pncp_licitacoes.up.sql` | Cria tabelas PNCP: `amparo_legal`, `licitacao_fornecedor`, `socio`, `fornecedor_socio`, `licitacao_contrato`, `licitacao_busca_controle` |
+| `000004_pncp_licitacoes.down.sql` | Remove tabelas PNCP |
+| `000005_add_hash_arquivo.up.sql` | Adiciona coluna `hash_sha256` em `arquivo_importado` + índice |
+| `000005_add_hash_arquivo.down.sql` | Remove coluna `hash_sha256` |
+| `000006_remove_uq_transacionais.up.sql` | Remove unique constraints de tabelas transacionais (prestacao_contas, despesa_*, receita_*, convenio) |
+| `000006_remove_uq_transacionais.down.sql` | Reverte a remoção |

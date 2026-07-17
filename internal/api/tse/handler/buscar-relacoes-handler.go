@@ -24,12 +24,12 @@ func (h *BuscaRelacoesHandler) Buscar(c *gin.Context) {
 		return
 	}
 
-	if len(req.CNPJ) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"erro": "CNPJ nao pode ser vazio"})
+	if len(req.Documento) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "documento nao pode ser vazio"})
 		return
 	}
 
-	result, err := h.useCase.Executar(c.Request.Context(), req.CNPJ)
+	result, err := h.useCase.Executar(c.Request.Context(), req.Documento)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"erro": err.Error()})
 		return

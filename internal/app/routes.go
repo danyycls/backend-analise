@@ -294,6 +294,7 @@ func NovoRoteador(app *App) *gin.Engine {
 		roteador.POST("/tse/repositorio/partidos", app.TSERepositorioHandler.PartidosBuscarPorIDs)
 		roteador.POST("/tse/repositorio/eleicoes", app.TSERepositorioHandler.EleicoesBuscarPorIDs)
 		roteador.POST("/tse/repositorio/candidatos-eleitos", app.TSERepositorioHandler.CandidatosEleitosPorUF)
+		roteador.POST("/tse/repositorio/relacoes", app.HandlerBuscaRelacoes.Buscar)
 	}
 
 	return roteador

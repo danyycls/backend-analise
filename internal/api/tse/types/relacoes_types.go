@@ -1,7 +1,7 @@
 package tsetypes
 
 type BuscaRelacoesRequest struct {
-	CNPJ string `json:"cnpj" binding:"required"`
+	Documento string `json:"documento" binding:"required"`
 }
 
 type RelacoesResponse struct {

@@ -1,10 +1,11 @@
-# TSE — Importação de Dados Eleitorais
+# Importação de Dados — TSE e Convênios
 
-## O que é o TSE
+## Visão Geral
 
-O **TSE (Tribunal Superior Eleitoral)** é a instituição responsável por administrar e julgar questões eleitorais no Brasil. Diferente dos demais clients deste projeto, o TSE não expõe uma API REST para consulta — em vez disso, disponibiliza os dados eleitorais como **planilhas CSV** particionadas por **ano eleitoral** e por **UF**.
+O ODT importa dados de fontes públicas que são disponibilizadas como **planilhas CSV**:
 
-O projeto importa esses CSVs para um banco PostgreSQL relacional, normalizando as entidades e mantendo a rastreabilidade por `arquivo_importado`. Os dados históricos cobrem o período de **2006 a 2024** e, a partir de **2018**, também estão disponíveis os dados de **prestação de contas** (receitas e despesas de campanha).
+- **TSE (Tribunal Superior Eleitoral)**: dados eleitorais históricos (2006–2024), incluindo candidatos, partidos, eleições, prestação de contas, receitas e despesas de campanha.
+- **Portal da Transparência**: convênios e acordos firmados pela Administração Pública Federal.
 
 A importação é executada sob demanda via rota `POST /import` (Server-Sent Events), que percorre o diretório de CSVs, processa os arquivos em paralelo (workers) e persiste em lotes via `pgCOPY` + `MERGE`.
 
@@ -18,9 +19,10 @@ Resumo das entidades persistidas pela importação:
 
 | Grupo | Entidades |
 |-------|-----------|
-| Dimensões | `eleicao`, `unidade_eleitoral`, `partido`, `candidato`, `fornecedor`, `doador`, `prestacao_contas` |
-| Transações | `despesa_candidato`, `despesa_orgao_partidario`, `receita_candidato`, `receita_orgao_partidario`, `receita_doador_originario_candidato`, `receita_doador_originario_orgao_partidario`, `bem_candidato` |
-| Rastreabilidade | `arquivo_importado` (PK por `caminho_relativo`) |
+| Dimensões TSE | `eleicao`, `unidade_eleitoral`, `partido`, `candidato`, `fornecedor`, `doador`, `prestacao_contas` |
+| Transações TSE | `despesa_candidato`, `despesa_orgao_partidario`, `receita_candidato`, `receita_orgao_partidario`, `receita_doador_originario_candidato`, `receita_doador_originario_orgao_partidario`, `bem_candidato` |
+| Convênios | `convenio` |
+| Rastreabilidade | `arquivo_importado` (PK por `caminho_relativo`, com `hash_sha256`) |
 
 O mapeamento CSV → tabelas também está em `docs/db-tse.md` (seção "CSV → Tabelas").
 
@@ -47,6 +49,8 @@ dataCSV/
 │   └── prestacao_de_contas_eleitorais_orgaos_partidarios_2024/
 ├── 2022/
 │   └── ...
+├── portalTransparencia/
+│   └── 20240101_Convenios.csv
 └── ...
 ```
 
@@ -140,6 +144,7 @@ Os diretórios são ordenados por prioridade para garantir que as dependências 
 
 | Prioridade | Diretório contém | Motivo |
 |------------|-------------------|--------|
+| 0 | `convenios` / `portalTransparencia` | Dados independentes, processados primeiro |
 | 1 | `consulta_cand` | Cria candidatos/partidos/eleições/unidades |
 | 2 | `bem_candidato` | Depende de candidatos |
 | 3 | `candidatos` (prestação de contas) | Depende de candidatos |
@@ -150,8 +155,8 @@ Para os diretórios das prioridades 2–4, o UseCase carrega um **cache de candi
 
 ### Workers
 
-- Pool de goroutines limitado por `IMPORT_MAX_WORKERS` (default 4).
-- A cada `IMPORT_FILES_PER_BATCH` arquivos (default 2), os workers finalizam, os dados lidos são **merged** em um coletor acumulado e o lote é **persistido**.
+- Pool de goroutines limitado por `IMPORT_MAX_WORKERS` (default: `NumCPU * 2`).
+- A cada `IMPORT_FILES_PER_BATCH` arquivos (default: 50), os workers finalizam, os dados lidos são **merged** em um coletor acumulado e o lote é **persistido**.
 - Após cada lote: `runtime.GC()` + `debug.FreeOSMemory()` para liberar memória.
 - Erro em qualquer worker aborta o lote e propaga o erro (primeiro erro vence via `sync.Once`).
 
@@ -174,6 +179,7 @@ Valores nulos do TSE (`#NULO`, `#NE`, `#NULO#`, `-1`) são normalizados para str
 
 | Prefixo do arquivo | Tipo (interno) | Prioridade | Tabela(s) destino |
 |--------------------|----------------|------------|-------------------|
+| `*_convenios.csv` | `convenio_portal_transparencia` | 0 | `convenio` |
 | `consulta_cand_` | `consulta_candidato` | 1 | `candidato`, `eleicao`, `unidade_eleitoral`, `partido` |
 | `bem_candidato_` | `bem_candidato` | 2 | `bem_candidato` |
 | `despesas_contratadas_candidatos_` | `despesa_contratada_candidato` | 3 | `despesa_candidato` (CONTRATADA), `fornecedor`, `prestacao_contas` |
@@ -184,6 +190,8 @@ Valores nulos do TSE (`#NULO`, `#NE`, `#NULO#`, `-1`) são normalizados para str
 | `receitas_orgaos_partidarios_doador_originario_` | `receita_orgao_partidario_doador_originario` | 8 | `receita_doador_originario_orgao_partidario` |
 | `despesas_pagas_candidatos_` | `despesa_paga_candidato` | 9 | `despesa_candidato` (PAGA) |
 | `despesas_pagas_orgaos_partidarios_` | `despesa_paga_orgao_partidario` | 10 | `despesa_orgao_partidario` (PAGA) |
+
+> **Nota:** Arquivos de convênios (`_convenios.csv`) são processados com prioridade máxima (0), antes de qualquer dado TSE.
 
 Arquivos que não correspondam a nenhum prefixo são ignorados pela descoberta.
 
@@ -238,8 +246,8 @@ A persistência executa 14 passos sequenciais por lote, respeitando a ordem de d
 
 ## Referências
 
-- **[docs/db-tse.md](./db-tse.md)** — Modelo do banco TSE (entidades, FKs, índices, migrations, mapeamento CSV → tabelas)
-- **Código-fonte:** `internal/esferas-brasileiras/tse/importacao/`
+- **[docs/db-tse.md](./db-tse.md)** — Modelo do banco (entidades, FKs, índices, migrations, mapeamento CSV → tabelas)
+- **Código-fonte:** `internal/sources/tse/importacao/`
   - `handler/` — endpoint SSE
   - `usecase/` — orquestração e worker pool
   - `service/` — descoberta de arquivos

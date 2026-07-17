@@ -17,10 +17,6 @@ https://www.gov.br/pncp/pt-br/acesso-a-informacao/dados-abertos
 | Método | URL | Input | Output | Descrição |
 |--------|-----|-------|--------|-----------|
 | BuscarContratos | `/contratos` | `cnpj string`, `dataInicial string`, `dataFinal string`, `pagina int`, `tamanho int` | `[]Contrato` | Consultar Contratos por Data de Publicação. |
-
-### Contratações (Publicação)
-
-| Método | URL | Input | Output | Descrição |
-|--------|-----|-------|--------|-----------|
-| BuscarContratacoesPorMunicipio | `/contratacoes/publicacao` | `codigoMunicipio string`, `dataInicial string`, `dataFinal string`, `codigoModalidade string`, `pagina int`, `tamanho int` | `*PublicacaoResponse` | Consultar Contratações por Data de Publicação (filtro por município IBGE). |
-| BuscarContratacoesPorUF | `/contratacoes/publicacao` | `uf string`, `dataInicial string`, `dataFinal string`, `codigoModalidade string`, `pagina int`, `tamanho int` | `*PublicacaoResponse` | Consultar Contratações por Data de Publicação (filtro por UF). |
+| BuscarContratosPorMunicipio | `/contratos` | `codigoMunicipio string`, `dataInicial string`, `dataFinal string`, `codigoModalidade string`, `pagina int`, `tamanho int` | `*PublicacaoResponse` | Consultar Contratos por município IBGE. |
+| BuscarContratosPorUF | `/contratos` | `uf string`, `dataInicial string`, `dataFinal string`, `codigoModalidade string`, `pagina int`, `tamanho int` | `*PublicacaoResponse` | Consultar Contratos por UF. |
+| BuscarContratosPorOrgao | `/contratos` | `cnpjOrgao string`, `dataInicial string`, `dataFinal string`, `pagina int`, `tamanho int` | `*PublicacaoResponse` | Consultar Contratos por órgão (CNPJ). |
